@@ -15,9 +15,10 @@ CORS(app)
 def calculate_mds():
     ...
     
-@app.route('/mds', methods=['GET'])
+@app.route('/mds', methods=['POST'])
 def get_mds():
-    ...
+    # Get parameters from request
+    calculate_mds()
     print("MDS calculation endpoint hit")
     return 'OK', 200
 
