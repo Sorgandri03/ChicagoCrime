@@ -1,7 +1,7 @@
 (function() {
 const margin = {top: 30, right: 30, bottom: 70, left: 60},
     width = 460 - margin.left - margin.right,
-    height = 400 - margin.top - margin.bottom;
+    height = 300 - margin.top - margin.bottom;
 
 // append the svg object to the map div
 const svg = d3.select("#map")

@@ -1,0 +1,17 @@
+.grid-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 0px 0px;
+    width: 100vw;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0;
+}
+.grid-item {
+    background: #fff;
+    border: none;
+    padding: 0;
+    min-height: 300px;
+    box-sizing: border-box;
+}

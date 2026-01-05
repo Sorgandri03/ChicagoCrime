@@ -5,15 +5,19 @@
     <title>D3 test page</title>
     <!-- Load d3.js -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link rel="stylesheet" href="/app/style.css">
 </head>
 
 <body>
-    <!-- Create a div where the graph will take place -->
-    <div id="bargraph"></div>
-    <div id="map"></div>
-    <div id="stackedarea"></div>
+    <div class="grid-container">
+        <div class="grid-item" id="bargraph"></div>
+        <div class="grid-item" id="map"></div>
+        <div class="grid-item" id="stackedarea"></div>
+        <div class="grid-item" id="scatteredplot"></div>
+    </div>
 
     <script src="/app/graphs/bargraph.js"></script>
     <script src="/app/graphs/map.js"></script>
     <script src="/app/graphs/stackedarea.js"></script>
+    <script src="/app/graphs/scatteredplot.js"></script>
 </body>
