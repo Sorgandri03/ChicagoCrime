@@ -14,6 +14,10 @@ CORS(app)
 
 def calculate_mds():
     ...
+
+def load_data():
+    data = pandas.read_csv(os.path.join('data', 'chicago_crime_data.csv'))
+    return data
     
 @app.route('/mds', methods=['POST'])
 def get_mds():
@@ -22,5 +26,29 @@ def get_mds():
     print("MDS calculation endpoint hit")
     return 'OK', 200
 
+@app.route('/data', methods=['GET'])
+def get_data():
+    global data
+    graph = request.args.get('graph')
+
+    match graph:
+        case 'scatteredplot':
+            return 0
+        case 'bargraph':
+            counts = data['primary_type'].value_counts().reset_index()
+            counts.columns = ['crime', 'count']
+            json_str = counts.to_json(orient='records')
+            return json_str, 200, {'Content-Type': 'application/json'}
+        case 'map':
+            return 0
+        case 'stackedarea':
+            return 0
+        case _:
+            return 'Invalid graph type', 400
+    
+    return data.to_json()
+
 if __name__ == '__main__':
+    global data
+    data = load_data()
     app.run(debug=True)
