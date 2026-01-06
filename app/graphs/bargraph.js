@@ -28,13 +28,13 @@
       .attr("transform", `translate(0, ${height})`)
       .call(d3.axisBottom(x));
 
-    const fs = Math.max(5, Math.round((container ? container.offsetWidth : 460) / 80));
+    const fs = Math.min(8, Math.round((container ? container.offsetWidth : 460) / 80));
     xAxis.selectAll("text")
-      .attr("transform", "translate(-8,2)rotate(-40)")
+      .attr("transform", "translate(-8,2)rotate(-30)")
       .style("text-anchor", "end")
       .style("font-size", fs + "px");
 
-    // Y axis: logarithmic scale because values can be much larger than 13000
+    // Y axis: logarithmic scale
     const values = data.map(d => +d.count);
     const maxVal = d3.max(values) || 1;
     const minPositive = d3.min(values.filter(v => v > 0)) || 1;

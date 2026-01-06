@@ -83,7 +83,6 @@
     cachedPop = loadData[1];
 
     let topo = cachedTopo;
-    console.log('Loaded topo:', topo && topo.features && topo.features.length);
     if (!topo || !topo.features || topo.features.length === 0) {
       console.error('GeoJSON has no features or failed to load');
       return;
