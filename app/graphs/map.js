@@ -3,7 +3,24 @@
   const container = document.getElementById('map');
   let cachedTopo = null;
   let cachedPop = null;
+  let cachedCrime = null;
 
+  function loadCrimeData() {
+
+    return d3.csv("/app/data/crime_by_community_area.csv").then(data => {
+      return data.map(d => [d.community_area, +d.crime_count]);
+    });
+  }
+
+  function getCrimeCount(community) {
+    if (!cachedCrime) return null;
+    
+    const found = cachedCrime.find(([area]) => area === community);
+    return found ? found[1] : null;
+  }
+  loadCrimeData().then(crimeTuples => {
+    cachedCrime = crimeTuples;
+  });
   function draw(topo){
     const width = (container ? container.offsetWidth : 460) - margin.left - margin.right;
     const height = (container ? container.offsetHeight : 300) - margin.top - margin.bottom;
@@ -34,6 +51,9 @@
       .range(d3.schemeBlues[7]);
 
     let mouseOver = function(d) {
+      const community= this.__data__['properties']['community'];
+      const Count = getCrimeCount(community);
+      console.log("Community ", community, "Crime Count:", Count);//TODO: da mettere in un cazzo di tooltip
       d3.selectAll(".Country")
         .transition()
         .duration(200)
