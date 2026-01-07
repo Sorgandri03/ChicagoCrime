@@ -1,9 +1,10 @@
-(function() {
-  const margin = {top: 10, right: 30, bottom: 30, left: 60};
+(async function() {
+  const { getStackedAreaData } = await import("../api.js");
   const container = document.getElementById('stackedarea');
   let cachedData = null;
 
   function draw(data) {
+    const margin = {top: 10, right: 30, bottom: 30, left: 60};
     const width = (container ? container.offsetWidth : 460) - margin.left - margin.right;
     const height = (container ? container.offsetHeight : 300) - margin.top - margin.bottom;
 
@@ -16,56 +17,72 @@
       .append("g")
         .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-    // group the data: one array for each value of the X axis.
-    const sumstat = d3.group(data, d => d.year);
+    // Prepare data: unique years and crimes
+    const years = Array.from(new Set(data.map(d => +d.year))).sort((a,b)=>a-b);
+    const crimes = Array.from(new Set(data.map(d => d.crime)));
 
-    // Stack the data: each group will be represented on top of each other
-    const mygroups = ["Helen", "Amanda", "Ashley"] // list of group names
-    const mygroup = [1,2,3] // list of group names
+    // Pivot data into rows per year with crime counts as columns
+    const dataByYear = years.map(year => {
+      const row = { year };
+      crimes.forEach(c => row[c] = 0);
+      data.forEach(d => { if (+d.year === year) row[d.crime] = +(d.count || 0); });
+      return row;
+    });
+
+    // Stack the data by crime keys
     const stackedData = d3.stack()
-      .keys(mygroup)
-      .value(function(d, key){
-        return d[1][key].n
-      })(sumstat)
+      .keys(crimes)
+      (dataByYear);
 
-    // Add X axis --> it is a date format
+    // X axis: numeric year scale
     const x = d3.scaleLinear()
-      .domain(d3.extent(data, function(d) { return d.year; }))
+      .domain(d3.extent(years))
       .range([ 0, width ]);
+
     svg.append("g")
       .attr("transform", `translate(0, ${height})`)
-      .call(d3.axisBottom(x).ticks(5));
+      .call(d3.axisBottom(x).ticks(Math.min(years.length, 10)).tickFormat(d3.format("d")));
 
-    // Add Y axis
+    // Y axis: 0..max total per year
+    const maxTotal = d3.max(dataByYear, r => d3.sum(crimes, c => r[c])) || 1;
     const y = d3.scaleLinear()
-      .domain([0, d3.max(data, function(d) { return +d.n; })*1.2])
+      .domain([0, maxTotal])
       .range([ height, 0 ]);
+
     svg.append("g").call(d3.axisLeft(y));
 
     // color palette
     const color = d3.scaleOrdinal()
-      .domain(mygroups)
-      .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
+      .domain(crimes)
+      .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
 
     // Show the areas
     svg
       .selectAll("mylayers")
       .data(stackedData)
       .join("path")
-        .style("fill", function(d) { name = mygroups[d.key-1] ;  return color(name); })
+        .attr("fill", function(d) { return color(d.key); })
         .attr("d", d3.area()
-          .x(function(d, i) { return x(d.data[0]); })
+          .x(function(d) { return x(d.data.year); })
           .y0(function(d) { return y(d[0]); })
           .y1(function(d) { return y(d[1]); })
-      )
+        );
   }
 
   function debounce(fn, delay){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }
 
-  d3.csv("https://raw.githubusercontent.com/holtzy/data_to_viz/master/Example_dataset/5_OneCatSevNumOrdered.csv").then(function(data){
-    cachedData = data;
+  try {
+    const apiData = await getStackedAreaData();
+    if (!apiData || !Array.isArray(apiData)) {
+      console.error('getStackedAreaData returned invalid data', apiData);
+      return;
+    }
+    // Expect API objects with `crime` and `count` fields
+    cachedData = apiData.map(d => ({ year: d.year, crime: d.crime, count: +d.count }));
     draw(cachedData);
     window.addEventListener('resize', debounce(() => draw(cachedData), 200));
-  });
+  } catch (err) {
+    console.error('Error fetching stacked area data:', err);
+  }
 
 })();

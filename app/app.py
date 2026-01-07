@@ -42,7 +42,14 @@ def get_data():
         case 'map':
             return 0
         case 'stackedarea':
-            return 0
+            counts = data[['year', 'primary_type']].value_counts().reset_index()
+            counts.columns = ['year', 'primary_type', 'count']
+            counts['year'] = pandas.to_numeric(counts['year'], errors='coerce')
+            counts = counts.dropna(subset=['year'])
+            counts['year'] = counts['year'].astype(int)
+            counts = counts.sort_values(['year', 'count']).reset_index(drop=True)
+            json_str = counts.to_json(orient='records')
+            return json_str, 200, {'Content-Type': 'application/json'}
         case _:
             return 'Invalid graph type', 400
     
