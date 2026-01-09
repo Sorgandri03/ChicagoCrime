@@ -56,7 +56,14 @@
       .domain(crimes)
       .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
 
-    // Show the areas
+    // create (or recreate) a tooltip element
+    d3.select("body").selectAll(".tooltip").remove();
+    const tooltip = d3.select("body")
+      .append("div")
+      .attr("class", "tooltip")
+      .style("display", "none");
+
+    // Show the areas and add hover handlers to display the crime name
     svg
       .selectAll("mylayers")
       .data(stackedData)
@@ -66,7 +73,17 @@
           .x(function(d) { return x(d.data.year); })
           .y0(function(d) { return y(d[0]); })
           .y1(function(d) { return y(d[1]); })
-        );
+        )
+        .on("mousemove", function(event, d) {
+          tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY + 10) + "px")
+            .style("display", "inline-block")
+            .html(d && d.key ? d.key : "Unknown");
+        })
+        .on("mouseout", function() {
+          tooltip.style("display", "none");
+        });
   }
 
   function debounce(fn, delay){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }
@@ -77,8 +94,8 @@
       console.error('getStackedAreaData returned invalid data', apiData);
       return;
     }
-    // Expect API objects with `crime` and `count` fields
-    cachedData = apiData.map(d => ({ year: d.year, crime: d.crime, count: +d.count }));
+    // Expect API objects with `primary_type` and `count` fields
+    cachedData = apiData.map(d => ({ year: d.year, crime: d.primary_type, count: +d.count }));
     draw(cachedData);
     window.addEventListener('resize', debounce(() => draw(cachedData), 200));
   } catch (err) {

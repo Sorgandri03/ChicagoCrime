@@ -15,3 +15,15 @@
     min-height: 300px;
     box-sizing: border-box;
 }
+
+/* Tooltip for charts */
+.tooltip{
+    position: absolute;
+    padding: 6px 8px;
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+}
