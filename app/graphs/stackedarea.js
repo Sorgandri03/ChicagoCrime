@@ -94,7 +94,6 @@
       console.error('getStackedAreaData returned invalid data', apiData);
       return;
     }
-    // Expect API objects with `primary_type` and `count` fields
     cachedData = apiData.map(d => ({ year: d.year, crime: d.primary_type, count: +d.count }));
     draw(cachedData);
     window.addEventListener('resize', debounce(() => draw(cachedData), 200));

@@ -66,7 +66,6 @@
       console.error('getBarData returned invalid data', apiData);
       return;
     }
-    // Expect API objects with `crime` and `count` fields
     cachedData = apiData.map(d => ({ crime: d.crime, count: +d.count }));
     draw(cachedData);
     window.addEventListener('resize', debounce(() => draw(cachedData), 200));

@@ -1,27 +1,12 @@
-(function() {
+(async function() {
+  const { getMapData } = await import("../api.js");
   const margin = {top: 30, right: 30, bottom: 70, left: 60};
   const container = document.getElementById('map');
   let cachedTopo = null;
   let cachedPop = null;
-  let cachedCrime = null;
+  let cachedData = null;
 
-  function loadCrimeData() {
-
-    return d3.csv("/app/data/crime_by_community_area.csv").then(data => {
-      return data.map(d => [d.community_area, +d.crime_count]);
-    });
-  }
-
-  function getCrimeCount(community) {
-    if (!cachedCrime) return null;
-    
-    const found = cachedCrime.find(([area]) => area === community);
-    return found ? found[1] : null;
-  }
-  loadCrimeData().then(crimeTuples => {
-    cachedCrime = crimeTuples;
-  });
-  function draw(topo){
+  function draw(topo, data){
     const width = (container ? container.offsetWidth : 460) - margin.left - margin.right;
     const height = (container ? container.offsetHeight : 300) - margin.top - margin.bottom;
 
@@ -44,16 +29,30 @@
     const path = d3.geoPath().projection(projection);
 
     // Data and color scale
-    const data = new Map();
-    if (cachedPop) { cachedPop.forEach(d => data.set(d.code, +d.pop)); }
-    const colorScale = d3.scaleThreshold()
-      .domain([100000, 1000000, 10000000, 30000000, 100000000, 500000000])
-      .range(d3.schemeBlues[7]);
+    const pop = new Map();
+    if (cachedPop) { cachedPop.forEach(d => pop.set(d.code, +d.pop)); }
+    // build a lookup from community name -> crime count (case-insensitive)
+    const crimeByCommunity = new Map();
+    if (Array.isArray(data)) {
+      data.forEach(d => {
+        if (d && d.community_area != null) {
+          crimeByCommunity.set(String(d.community_area).toUpperCase(), +d.crime_count || 0);
+        }
+      });
+    }
+    // Compute data-driven domain (fallback to known min/max if no data)
+    const values = Array.from(crimeByCommunity.values());
+    const minVal = values.length ? d3.min(values) : 7865;
+    const maxVal = values.length ? d3.max(values) : 508819;
+    // Use a stronger sequential color scale (OrRd) for higher contrast
+    const colorScale = d3.scaleSequential()
+      .domain([minVal, maxVal])
+      .interpolator(d3.interpolateOrRd);
 
-    let mouseOver = function(d) {
-      const community= this.__data__['properties']['community'];
-      const Count = getCrimeCount(community);
-      console.log("Community ", community, "Crime Count:", Count);//TODO: da mettere in un cazzo di tooltip
+    let mouseOver = function(event, d) {
+      const communityName = (d && d.properties && d.properties.community) ? String(d.properties.community).toUpperCase() : '';
+      const Count = crimeByCommunity.get(communityName) || 0;
+      console.log("Community", communityName, "Crime Count:", Count);
       d3.selectAll(".Country")
         .transition()
         .duration(200)
@@ -65,7 +64,7 @@
         .style("stroke", "black")
     }
 
-    let mouseLeave = function(d) {
+    let mouseLeave = function(event, d) {
       d3.selectAll(".Country")
         .transition()
         .duration(200)
@@ -84,8 +83,11 @@
       .append("path")
         // draw each area using shared path generator
         .attr("d", path)
-        // set the color of each area to black for testing
-        .attr("fill", "#000")
+        .attr("fill", function(d){
+          const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
+          const c = crimeByCommunity.get(name) || 0;
+          return colorScale(c) || '#eee';
+        })
         .style("stroke", "transparent")
         .attr("class", function(d){ return "Country" } )
         .style("opacity", .8)
@@ -95,21 +97,29 @@
 
   function debounce(fn, delay){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }
 
-  Promise.all([
-    d3.json("/app/media/chicago-community-areas.geojson"),
-    d3.csv("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world_population.csv")
-  ]).then(function(loadData){
+  try {
+    const loadData = await Promise.all([
+      d3.json("/app/media/chicago-community-areas.geojson")
+    ]);
     cachedTopo = loadData[0];
-    cachedPop = loadData[1];
+    cachedPop = loadData.length > 1 ? loadData[1] : null;
 
-    let topo = cachedTopo;
+    const topo = cachedTopo;
     if (!topo || !topo.features || topo.features.length === 0) {
       console.error('GeoJSON has no features or failed to load');
       return;
     }
 
-    draw(topo);
-    window.addEventListener('resize', debounce(() => draw(topo), 200));
-  });
+    const apiData = await getMapData();
+    if (!apiData || !Array.isArray(apiData)) {
+      console.error('getMapData returned invalid data', apiData);
+      return;
+    }
+    cachedData = apiData.map(d => ({ community_area: d.community_area, crime_count: d.crime_count }));
+    draw(topo, cachedData);
+    window.addEventListener('resize', debounce(() => draw(topo, cachedData), 200));
+  } catch (err) {
+    console.error('Error fetching map area data:', err);
+  }
 
 })();
