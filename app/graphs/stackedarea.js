@@ -14,6 +14,7 @@
       .append("svg")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
+        .attr("id", "tooltip-stackedarea")
       .append("g")
         .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
@@ -56,12 +57,11 @@
       .domain(crimes)
       .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
 
-    // create (or recreate) a tooltip element
-    d3.select("body").selectAll(".tooltip").remove();
-    const tooltip = d3.select("body")
+    // Create a tooltip element
+    var tooltip = d3.select("#stackedarea")
       .append("div")
-      .attr("class", "tooltip")
-      .style("display", "none");
+        .style("position", "absolute")
+        .style("visibility", "hidden");
 
     // Show the areas and add hover handlers to display the crime name
     svg
@@ -74,15 +74,22 @@
           .y0(function(d) { return y(d[0]); })
           .y1(function(d) { return y(d[1]); })
         )
+        .on("mouseover", function(event, d) {
+          tooltip
+            .style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY + 10) + "px")
+            .style("visibility", "visible")
+            .text(d && d.key ? d.key : "Unknown");
+        })
         .on("mousemove", function(event, d) {
           tooltip
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY + 10) + "px")
-            .style("display", "inline-block")
-            .html(d && d.key ? d.key : "Unknown");
+            .style("visibility", "visible")
+            .text(d && d.key ? d.key : "Unknown");
         })
         .on("mouseout", function() {
-          tooltip.style("display", "none");
+          tooltip.style("visibility", "hidden");
         });
   }
 

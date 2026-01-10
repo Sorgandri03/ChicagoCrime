@@ -61,7 +61,12 @@
         .transition()
         .duration(200)
         .style("opacity", 1)
-        .style("stroke", "black")
+        .style("stroke", "#000")
+        .style("stroke-width", "2px");
+
+      // Show tooltip with community and count (allow HTML)
+      tooltip.html(`<strong>${(d && d.properties && d.properties.community) ? d.properties.community : 'Unknown'}</strong><br/>Count: ${Count}`)
+        .style("visibility", "visible");
     }
 
     let mouseLeave = function(event, d) {
@@ -73,7 +78,29 @@
         .transition()
         .duration(200)
         .style("stroke", "transparent")
+        .style("stroke-width", "0px");
+
+      // Hide tooltip
+      tooltip.style("visibility", "hidden");
     }
+
+    // Update tooltip position as mouse moves
+    let mouseMove = function(event, d) {
+      tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY + 10) + "px");
+    }
+
+    // Create a tooltip element (styled, positioned relative to #map)
+    var tooltip = d3.select("#map")
+      .append("div")
+        .style("position", "absolute")
+        .style("visibility", "hidden")
+        .style("background", "rgba(0,0,0,0.75)")
+        .style("color", "#fff")
+        .style("padding", "6px 8px")
+        .style("border-radius", "4px")
+        .style("font-size", "12px")
+        .style("pointer-events", "none")
+        .style("z-index", 1000);
 
     // Draw the map
     svg.append("g")
@@ -89,9 +116,11 @@
           return colorScale(c) || '#eee';
         })
         .style("stroke", "transparent")
+        .style("stroke-width", "0px")
         .attr("class", function(d){ return "Country" } )
         .style("opacity", .8)
         .on("mouseover", mouseOver )
+        .on("mousemove", mouseMove )
         .on("mouseleave", mouseLeave );
   }
 
