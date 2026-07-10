@@ -57,10 +57,10 @@
       .domain(crimes)
       .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']);
 
-    // Create a tooltip element
-    var tooltip = d3.select("#stackedarea")
+    // Create a tooltip element (appended to body for proper positioning)
+    var tooltip = d3.select("body")
       .append("div")
-        .style("position", "absolute")
+        .attr("class", "chart-tooltip")
         .style("visibility", "hidden");
 
     // Show the areas and add hover handlers to display the crime name
@@ -84,9 +84,7 @@
         .on("mousemove", function(event, d) {
           tooltip
             .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY + 10) + "px")
-            .style("visibility", "visible")
-            .text(d && d.key ? d.key : "Unknown");
+            .style("top", (event.pageY + 10) + "px");
         })
         .on("mouseout", function() {
           tooltip.style("visibility", "hidden");

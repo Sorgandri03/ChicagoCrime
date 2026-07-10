@@ -1,6 +1,6 @@
 (async function() {
   const { getMapData } = await import("../api.js");
-  const margin = {top: 30, right: 30, bottom: 70, left: 60};
+  const margin = {top: 30, right: 30, bottom: 70, left: 150};
   const container = document.getElementById('map');
   let cachedTopo = null;
   let cachedPop = null;
@@ -23,7 +23,7 @@
     // Map and projection — center on Chicago and use a larger scale
     const projection = d3.geoMercator()
       .center([-87.65, 41.85])
-      .scale(30000)
+      .scale(40000)
       // translate relative to the inner drawing area (group already offset by margins)
       .translate([width / 2, height / 2]);
     const path = d3.geoPath().projection(projection);
@@ -44,10 +44,10 @@
     const values = Array.from(crimeByCommunity.values());
     const minVal = values.length ? d3.min(values) : 7865;
     const maxVal = values.length ? d3.max(values) : 508819;
-    // Use a stronger sequential color scale (OrRd) for higher contrast
+    // Use blue color scale to match UI theme
     const colorScale = d3.scaleSequential()
       .domain([minVal, maxVal])
-      .interpolator(d3.interpolateOrRd);
+      .interpolator(d3.interpolateBlues);
 
     let mouseOver = function(event, d) {
       const communityName = (d && d.properties && d.properties.community) ? String(d.properties.community).toUpperCase() : '';
@@ -60,9 +60,9 @@
       d3.select(this)
         .transition()
         .duration(200)
-        .style("opacity", 1)
-        .style("stroke", "#000")
-        .style("stroke-width", "2px");
+        .style("opacity", 1);
+        //.style("stroke", "#000")
+        //.style("stroke-width", "2px");
 
       // Show tooltip with community and count (allow HTML)
       tooltip.html(`<strong>${(d && d.properties && d.properties.community) ? d.properties.community : 'Unknown'}</strong><br/>Count: ${Count}`)
@@ -77,8 +77,8 @@
       d3.select(this)
         .transition()
         .duration(200)
-        .style("stroke", "transparent")
-        .style("stroke-width", "0px");
+        .style("stroke", "#333")
+        .style("stroke-width", "0.5px");
 
       // Hide tooltip
       tooltip.style("visibility", "hidden");
@@ -89,18 +89,11 @@
       tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY + 10) + "px");
     }
 
-    // Create a tooltip element (styled, positioned relative to #map)
-    var tooltip = d3.select("#map")
+    // Create a tooltip element (appended to body for proper positioning)
+    var tooltip = d3.select("body")
       .append("div")
-        .style("position", "absolute")
-        .style("visibility", "hidden")
-        .style("background", "rgba(0,0,0,0.75)")
-        .style("color", "#fff")
-        .style("padding", "6px 8px")
-        .style("border-radius", "4px")
-        .style("font-size", "12px")
-        .style("pointer-events", "none")
-        .style("z-index", 1000);
+        .attr("class", "chart-tooltip")
+        .style("visibility", "hidden");
 
     // Draw the map
     svg.append("g")
@@ -115,8 +108,8 @@
           const c = crimeByCommunity.get(name) || 0;
           return colorScale(c) || '#eee';
         })
-        .style("stroke", "transparent")
-        .style("stroke-width", "0px")
+        .style("stroke", "#333")
+        .style("stroke-width", "0.5px")
         .attr("class", function(d){ return "Country" } )
         .style("opacity", .8)
         .on("mouseover", mouseOver )
