@@ -1,6 +1,6 @@
 (async function() {
   const { getMapData } = await import("../api.js");
-  const margin = {top: 30, right: 30, bottom: 70, left: 60};
+  const margin = {top: 30, right: 30, bottom: 70, left: 150};
   const container = document.getElementById('map');
   let cachedTopo = null;
   let cachedPop = null;
@@ -89,18 +89,11 @@
       tooltip.style("left", (x + 10) + "px").style("top", (y + 10) + "px");
     }
 
-    // Create a tooltip element (styled, positioned relative to #map)
-    var tooltip = d3.select("#map")
+    // Create a tooltip element (appended to body for proper positioning)
+    var tooltip = d3.select("body")
       .append("div")
-        .style("position", "absolute")
-        .style("visibility", "hidden")
-        .style("background", "rgba(0,0,0,0.75)")
-        .style("color", "#fff")
-        .style("padding", "6px 8px")
-        .style("border-radius", "4px")
-        .style("font-size", "12px")
-        .style("pointer-events", "none")
-        .style("z-index", 1000);
+        .attr("class", "chart-tooltip")
+        .style("visibility", "hidden");
 
     // Draw the map
     mapAreas = svg.append("g")

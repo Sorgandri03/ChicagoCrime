@@ -11,11 +11,11 @@ from shapely.strtree import STRtree
 counts = {}
 
 # Load GeoJSON as a dict to access features and geometry
-with open(os.path.join('media', 'chicago-community-areas.geojson'), 'r') as f:
+with open(os.path.join('app/media', 'chicago-community-areas.geojson'), 'r') as f:
     geojson = json.load(f)
 
 # Read crime data
-dump = pandas.read_csv(os.path.join('data', 'chicago_crime_data.csv'))
+dump = pandas.read_csv(os.path.join('app/data', '5anni.csv'))
 
 # Prepare polygons and a spatial index so each crime is only tested against
 # nearby community areas.
