@@ -7,10 +7,11 @@
   let cachedData = null;
 
   function draw(topo, data){
-    const width = (container ? container.offsetWidth : 460) - margin.left - margin.right;
-    const height = (container ? container.offsetHeight : 300) - margin.top - margin.bottom;
+    const width = Math.max(1, (container ? container.offsetWidth : 460) - margin.left - margin.right);
+    const height = Math.max(1, (container ? container.offsetHeight : 300) - margin.top - margin.bottom);
 
     d3.select('#map').selectAll('*').remove();
+    d3.select('#map').style('position', 'relative');
 
     // append the svg object to the map div
     const svg = d3.select("#map")
@@ -20,12 +21,10 @@
       .append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Map and projection — center on Chicago and use a larger scale
+    // Fit the GeoJSON to the current container. A fixed Mercator scale causes
+    // clipped and offset shapes when the viewport changes size.
     const projection = d3.geoMercator()
-      .center([-87.65, 41.85])
-      .scale(30000)
-      // translate relative to the inner drawing area (group already offset by margins)
-      .translate([width / 2, height / 2]);
+      .fitSize([width, height], topo);
     const path = d3.geoPath().projection(projection);
 
     // Data and color scale
@@ -42,43 +41,43 @@
     }
     // Compute data-driven domain (fallback to known min/max if no data)
     const values = Array.from(crimeByCommunity.values());
-    const minVal = values.length ? d3.min(values) : 7865;
-    const maxVal = values.length ? d3.max(values) : 508819;
+    const minVal = values.length ? d3.min(values) : 0;
+    const maxVal = values.length ? d3.max(values) : 1;
     // Use a stronger sequential color scale (OrRd) for higher contrast
     const colorScale = d3.scaleSequential()
-      .domain([minVal, maxVal])
+      .domain([minVal, Math.max(minVal + 1, maxVal)])
       .interpolator(d3.interpolateOrRd);
+
+    let mapAreas;
 
     let mouseOver = function(event, d) {
       const communityName = (d && d.properties && d.properties.community) ? String(d.properties.community).toUpperCase() : '';
-      const Count = crimeByCommunity.get(communityName) || 0;
-      console.log("Community", communityName, "Crime Count:", Count);
-      d3.selectAll(".Country")
-        .transition()
-        .duration(200)
+      const count = crimeByCommunity.get(communityName) || 0;
+      // Interrupt any animation still running from the previous area. Without
+      // this, rapid pointer movement can leave a path in its hover state.
+      mapAreas
+        .interrupt()
         .style("opacity", .5)
+        .style("stroke", "#fff")
+        .style("stroke-width", "0.5px");
       d3.select(this)
-        .transition()
-        .duration(200)
+        .interrupt()
         .style("opacity", 1)
         .style("stroke", "#000")
         .style("stroke-width", "2px");
 
       // Show tooltip with community and count (allow HTML)
-      tooltip.html(`<strong>${(d && d.properties && d.properties.community) ? d.properties.community : 'Unknown'}</strong><br/>Count: ${Count}`)
+      tooltip.html(`<strong>${(d && d.properties && d.properties.community) ? d.properties.community : 'Unknown'}</strong><br/>Count: ${count.toLocaleString()}`)
         .style("visibility", "visible");
     }
 
     let mouseLeave = function(event, d) {
-      d3.selectAll(".Country")
-        .transition()
-        .duration(200)
+      // Reset every visual property changed on hover, including the border.
+      mapAreas
+        .interrupt()
         .style("opacity", .8)
-      d3.select(this)
-        .transition()
-        .duration(200)
-        .style("stroke", "transparent")
-        .style("stroke-width", "0px");
+        .style("stroke", "#fff")
+        .style("stroke-width", "0.5px");
 
       // Hide tooltip
       tooltip.style("visibility", "hidden");
@@ -86,7 +85,8 @@
 
     // Update tooltip position as mouse moves
     let mouseMove = function(event, d) {
-      tooltip.style("left", (event.pageX + 10) + "px").style("top", (event.pageY + 10) + "px");
+      const [x, y] = d3.pointer(event, container);
+      tooltip.style("left", (x + 10) + "px").style("top", (y + 10) + "px");
     }
 
     // Create a tooltip element (styled, positioned relative to #map)
@@ -103,7 +103,7 @@
         .style("z-index", 1000);
 
     // Draw the map
-    svg.append("g")
+    mapAreas = svg.append("g")
       .selectAll("path")
       .data(topo.features)
       .enter()
@@ -115,8 +115,8 @@
           const c = crimeByCommunity.get(name) || 0;
           return colorScale(c) || '#eee';
         })
-        .style("stroke", "transparent")
-        .style("stroke-width", "0px")
+        .style("stroke", "#fff")
+        .style("stroke-width", "0.5px")
         .attr("class", function(d){ return "Country" } )
         .style("opacity", .8)
         .on("mouseover", mouseOver )
