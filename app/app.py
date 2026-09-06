@@ -40,7 +40,7 @@ def get_data():
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
         case 'map':
-            counts = pandas.read_csv(os.path.join('data', '5anni_community_area.csv'))
+            counts = pandas.read_csv(os.path.join('data', 'crime_by_community_area.csv'))
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
         case 'stackedarea':
