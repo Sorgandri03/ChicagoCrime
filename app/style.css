@@ -126,11 +126,162 @@ footer {
 /* Tooltip for charts */
 .chart-tooltip {
     position: absolute;
-    padding: 6px 8px;
-    background: rgba(0,0,0,0.75);
+    padding: 8px 12px;
+    background: rgba(15, 23, 42, 0.92);
     color: #fff;
-    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
     font-size: 12px;
+    line-height: 1.4;
     pointer-events: none;
     z-index: 1000;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    backdrop-filter: blur(4px);
+    transition: opacity 0.15s ease;
+}
+
+/* Bar Chart Header Controls */
+#bar-controls .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+#bar-controls .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #ffffff;
+    color: #ffffff;
+}
+
+#bar-controls .btn-outline-light.active {
+    background: #ffffff;
+    color: var(--primary-color);
+    border-color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+#bar-controls select.form-select-sm {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background-color: #ffffff;
+    color: #333;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+#bar-controls .input-group-text {
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* SVG Chart Elements */
+.bar-rect {
+    cursor: pointer;
+    transition: fill-opacity 0.2s ease, stroke 0.2s ease;
+}
+
+.bar-rect:hover {
+    stroke: #0d47a1;
+    stroke-width: 2px;
+}
+
+.bar-rect.selected {
+    stroke: #e65100 !important;
+    stroke-width: 2.5px !important;
+    filter: drop-shadow(0 0 4px rgba(230, 81, 0, 0.6));
+}
+
+.bar-value-label {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    fill: #475569;
+    pointer-events: none;
+}
+
+.mean-reference-line {
+    stroke: #dc2626;
+    stroke-width: 1.5px;
+    stroke-dasharray: 4, 3;
+    pointer-events: none;
+}
+
+.mean-reference-badge {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    fill: #dc2626;
+    pointer-events: none;
+}
+
+.axis-text {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #334155;
+}
+
+.color-legend text {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 9px;
+    fill: #64748b;
+}
+
+/* MDS Scatter Plot Styling */
+#mds-controls .btn-outline-light {
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+#mds-controls .btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #ffffff;
+    color: #ffffff;
+}
+
+#mds-controls .btn-outline-light.active {
+    background: #ffffff;
+    color: var(--primary-color);
+    border-color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.mds-dot {
+    cursor: pointer;
+    transition: r 0.2s ease, opacity 0.2s ease, stroke-width 0.2s ease;
+}
+
+.mds-dot:hover {
+    stroke: #0f172a !important;
+    stroke-width: 2px !important;
+}
+
+.mds-dot.selected {
+    stroke: #e65100 !important;
+    stroke-width: 2.5px !important;
+    filter: drop-shadow(0 0 5px rgba(230, 81, 0, 0.7));
+}
+
+.mds-brush .selection {
+    fill: #3b82f6;
+    fill-opacity: 0.15;
+    stroke: #2563eb;
+    stroke-width: 1.5px;
+    stroke-dasharray: 4, 3;
+}
+
+.mds-legend text {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 8.5px;
+    cursor: pointer;
+}
+
+/* Map Highlight on District Selection */
+path.highlighted-district {
+    stroke: #e65100 !important;
+    stroke-width: 2.5px !important;
+    opacity: 1 !important;
+    filter: drop-shadow(0 0 3px rgba(230, 81, 0, 0.8));
 }
