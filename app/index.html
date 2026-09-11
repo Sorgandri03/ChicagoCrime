@@ -70,13 +70,37 @@
             <!-- Crime Trends Over Time - Stacked Area Chart -->
             <div class="col-lg-8 col-md-12 mb-3">
                 <div class="viz-card">
-                    <div class="viz-card-header">
-                        <h5>
+                    <div class="viz-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+                        <h5 class="mb-0">
                             <i class="bi bi-graph-up"></i>
                             Crime Trends Over Time
+                            <small class="text-white-50 ms-1 fs-6">(2020–2025)</small>
                         </h5>
+                        <div class="stacked-controls d-flex flex-wrap align-items-center gap-2" id="stacked-area-controls">
+                            <!-- View mode: Counts vs Percentage -->
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Mode">
+                                <button type="button" class="btn btn-outline-light active" id="btn-mode-counts" title="View Absolute Incident Counts">
+                                    <i class="bi bi-hash"></i> Counts
+                                </button>
+                                <button type="button" class="btn btn-outline-light" id="btn-mode-percent" title="View Normalized Proportions (100% Part-to-Whole)">
+                                    <i class="bi bi-percent"></i> Share (%)
+                                </button>
+                            </div>
+                            <!-- Granularity: Top N Categories -->
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Top Crimes">
+                                <button type="button" class="btn btn-outline-light" data-top="5" id="btn-top-5">Top 5</button>
+                                <button type="button" class="btn btn-outline-light active" data-top="8" id="btn-top-8">Top 8</button>
+                                <button type="button" class="btn btn-outline-light" data-top="10" id="btn-top-10">Top 10</button>
+                                <button type="button" class="btn btn-outline-light" data-top="all" id="btn-top-all">All</button>
+                            </div>
+                            <!-- Active selection status & Reset Button -->
+                            <span id="stacked-status-badge" class="badge bg-light text-primary d-none"></span>
+                            <button type="button" class="btn btn-sm btn-light py-0 px-2 d-none" id="btn-reset-stacked" title="Reset focus and time selection">
+                                <i class="bi bi-arrow-counterclockwise"></i> Reset
+                            </button>
+                        </div>
                     </div>
-                    <div class="viz-card-body">
+                    <div class="viz-card-body p-2">
                         <div class="graph-container-tall">
                             <div id="stackedarea"></div>
                         </div>

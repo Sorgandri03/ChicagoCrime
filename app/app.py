@@ -16,7 +16,8 @@ def calculate_mds():
     ...
 
 def load_data():
-    data = pandas.read_csv(os.path.join('data', '5anni.csv'))
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data = pandas.read_csv(os.path.join(base_dir, 'data', '5anni.csv'))
     return data
     
 @app.route('/mds', methods=['POST'])
@@ -40,7 +41,8 @@ def get_data():
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
         case 'map':
-            counts = pandas.read_csv(os.path.join('data', 'crime_by_community_area.csv'))
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            counts = pandas.read_csv(os.path.join(base_dir, 'data', 'crime_by_community_area.csv'))
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
         case 'stackedarea':
