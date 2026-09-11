@@ -114,7 +114,34 @@
         .style("opacity", .8)
         .on("mouseover", mouseOver )
         .on("mousemove", mouseMove )
-        .on("mouseleave", mouseLeave );
+        .on("mouseleave", mouseLeave )
+        .on("click", function(event, d) {
+          const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
+          window.dispatchEvent(new CustomEvent('districtsSelected', { detail: { districts: [name] } }));
+        });
+
+    // Listen for selection from MDS scatter plot
+    window.addEventListener('districtsSelected', (e) => {
+      const selected = e.detail && e.detail.districts && e.detail.districts.length ? new Set(e.detail.districts) : null;
+      if (!mapAreas) return;
+      if (!selected || selected.size === 0) {
+        mapAreas
+          .classed('highlighted-district', false)
+          .style('opacity', 0.8)
+          .style('stroke', '#fff')
+          .style('stroke-width', '0.5px');
+      } else {
+        mapAreas.each(function(d) {
+          const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
+          const isSelected = selected.has(name);
+          d3.select(this)
+            .classed('highlighted-district', isSelected)
+            .style('opacity', isSelected ? 1 : 0.22)
+            .style('stroke', isSelected ? '#e65100' : '#fff')
+            .style('stroke-width', isSelected ? '2.5px' : '0.5px');
+        });
+      }
+    });
   }
 
   function debounce(fn, delay){ let t; return (...a)=>{ clearTimeout(t); t = setTimeout(()=>fn(...a), delay); }; }

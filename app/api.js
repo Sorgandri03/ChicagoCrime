@@ -9,11 +9,6 @@ async function getBarData() {
     }
 
     const result = await response.json();
-    for (const item of result) {
-      if (item.crime.length > 15) {
-        item.crime = item.crime.slice(0, 13) + '...';
-      }
-    }
     return result;
   } catch (error) {
     console.error(error.message);
@@ -48,4 +43,18 @@ async function getMapData() {
   }
 }
 
-export { getBarData, getStackedAreaData, getMapData };
+async function getMdsData(metric = 'profile') {
+  const url = `${BASE_URL}/data?graph=scatteredplot&metric=${metric}`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Response status: ${response.status}`);
+    }
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error fetching MDS data:', error.message);
+  }
+}
+
+export { getBarData, getStackedAreaData, getMapData, getMdsData };

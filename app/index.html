@@ -31,14 +31,54 @@
     <!-- Main Content -->
     <div class="container-fluid main-container px-4">
         <div class="row">
-            <!-- Crime by Community Area - Bar Graph -->
+            <!-- Crime Distribution by Type - Bar Graph -->
             <div class="col-lg-8 col-md-12 mb-3">
                 <div class="viz-card">
-                    <div class="viz-card-header">
-                        <h5>
-                            <i class="bi bi-bar-chart-fill"></i>
-                            Crime by Community Area
+                    <div class="viz-card-header d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+                        <h5 class="mb-0">
+                            <i class="bi bi-bar-chart-fill me-1"></i>
+                            Crime Distribution by Type
+                            <span id="bar-total-badge" class="badge bg-light text-primary ms-2 font-monospace" style="font-size:0.75rem; font-weight:600;"></span>
                         </h5>
+                        <div class="d-flex align-items-center gap-2 flex-wrap" id="bar-controls">
+                            <!-- View Scope -->
+                            <div class="input-group input-group-sm" style="width: auto;">
+                                <span class="input-group-text bg-white text-dark py-0 px-2" style="font-size: 0.75rem;">View</span>
+                                <select id="bar-filter-select" class="form-select form-select-sm py-0" style="font-size: 0.75rem;">
+                                    <option value="10">Top 10</option>
+                                    <option value="15" selected>Top 15</option>
+                                    <option value="25">Top 25</option>
+                                    <option value="all">All 33</option>
+                                </select>
+                            </div>
+                            <!-- Sort -->
+                            <div class="input-group input-group-sm" style="width: auto;">
+                                <span class="input-group-text bg-white text-dark py-0 px-2" style="font-size: 0.75rem;">Sort</span>
+                                <select id="bar-sort-select" class="form-select form-select-sm py-0" style="font-size: 0.75rem;">
+                                    <option value="count-desc" selected>Count &darr;</option>
+                                    <option value="count-asc">Count &uarr;</option>
+                                    <option value="alpha">A - Z</option>
+                                </select>
+                            </div>
+                            <!-- Orientation -->
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Orientation">
+                                <button type="button" class="btn btn-outline-light active py-0 px-2" id="bar-orient-horiz" title="Horizontal Bars (Best readability for long names)" style="font-size: 0.75rem;">
+                                    <i class="bi bi-distribute-vertical"></i> H
+                                </button>
+                                <button type="button" class="btn btn-outline-light py-0 px-2" id="bar-orient-vert" title="Vertical Bars" style="font-size: 0.75rem;">
+                                    <i class="bi bi-distribute-horizontal"></i> V
+                                </button>
+                            </div>
+                            <!-- Scale: Lin / Log -->
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Scale">
+                                <button type="button" class="btn btn-outline-light active py-0 px-2" id="bar-scale-lin" title="Linear Scale (Starts at 0, true proportions)" style="font-size: 0.75rem;">Lin</button>
+                                <button type="button" class="btn btn-outline-light py-0 px-2" id="bar-scale-log" title="Logarithmic Scale (For tiny values)" style="font-size: 0.75rem;">Log</button>
+                            </div>
+                            <!-- Mean Line Toggle -->
+                            <button type="button" class="btn btn-outline-light active py-0 px-2" id="bar-mean-toggle" title="Toggle Mean Reference Line" style="font-size: 0.75rem;">
+                                <i class="bi bi-dash-lg"></i> Mean
+                            </button>
+                        </div>
                     </div>
                     <div class="viz-card-body">
                         <div class="graph-container-tall">
@@ -108,14 +148,25 @@
                 </div>
             </div>
 
-            <!-- Crime Correlation Analysis - Scatter Plot -->
+            <!-- Strategic District Similarity - MDS Scatter Plot -->
             <div class="col-lg-4 col-md-12 mb-3">
                 <div class="viz-card">
-                    <div class="viz-card-header">
-                        <h5>
-                            <i class="bi bi-scatter-chart"></i>
-                            Correlation Analysis
+                    <div class="viz-card-header d-flex justify-content-between align-items-center flex-wrap gap-1 py-2">
+                        <h5 class="mb-0">
+                            <i class="bi bi-diagram-3-fill me-1"></i>
+                            District Similarity (MDS)
                         </h5>
+                        <div class="d-flex align-items-center gap-1" id="mds-controls">
+                            <!-- Metric Toggle: Profile vs Volume -->
+                            <div class="btn-group btn-group-sm" role="group" aria-label="MDS Metric">
+                                <button type="button" class="btn btn-outline-light active py-0 px-2" id="mds-metric-profile" title="Crime Mixture % (Strategic profile similarity)" style="font-size: 0.75rem;">Profile</button>
+                                <button type="button" class="btn btn-outline-light py-0 px-2" id="mds-metric-volume" title="Standardized Crime Volume" style="font-size: 0.75rem;">Volume</button>
+                            </div>
+                            <!-- Reset Selection -->
+                            <button type="button" class="btn btn-outline-light py-0 px-2" id="mds-reset-btn" title="Reset Selection" style="font-size: 0.75rem;">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="viz-card-body">
                         <div class="graph-container-tall">
