@@ -10,6 +10,7 @@
   let focusedCrime = null;    // null or string
   let brushedYears = null;    // null or [startYear, endYear]
   let hoveredCrime = null;
+  let selectedCommunity = null;
 
   // Cache DOM control references
   const btnModeCounts = document.getElementById('btn-mode-counts');
@@ -53,6 +54,10 @@
     } else {
       const topSet = new Set(sortedCrimes.slice(0, topN));
       displayCrimes = sortedCrimes.slice(0, topN);
+      if (focusKey && !topSet.has(focusKey) && sortedCrimes.includes(focusKey)) {
+        displayCrimes.push(focusKey);
+        topSet.add(focusKey);
+      }
       displayCrimes.push('OTHER CRIMES');
 
       sortedCrimes.forEach(c => {
@@ -205,7 +210,7 @@
     const totalWidth = svgWrap.offsetWidth || (rootContainer.offsetWidth - 230) || 600;
     const totalHeight = svgWrap.offsetHeight || rootContainer.offsetHeight || 440;
 
-    const margin = { top: 25, right: 35, bottom: 42, left: 62 };
+    const margin = { top: 18, right: 28, bottom: 36, left: 56 };
     const width = Math.max(10, totalWidth - margin.left - margin.right);
     const height = Math.max(10, totalHeight - margin.top - margin.bottom);
 
@@ -298,7 +303,7 @@
     g.append("text")
       .attr("class", "axis-title")
       .attr("x", width / 2)
-      .attr("y", height + 35)
+      .attr("y", height + 28)
       .attr("text-anchor", "middle")
       .text("Year of Incident");
 
@@ -339,11 +344,20 @@
     // Time Brush (d3.brushX) as taught in P11 & P12
     const brush = d3.brushX()
       .extent([[0, 0], [width, height]])
+      .on("start brush", function(event) {
+        if (event.sourceEvent) {
+          scrubberLine.style("opacity", 0);
+          scrubberDot.style("opacity", 0);
+          tooltip.style("display", "none");
+        }
+      })
       .on("end", brushed);
 
     const brushG = chartContent.append("g")
       .attr("class", "stacked-brush")
-      .call(brush);
+      .call(brush)
+      .on("mousemove", onPointerMove)
+      .on("mouseleave", onPointerLeave);
 
     function brushed(event) {
       if (!event.sourceEvent) return; // Ignore programmatic brush calls
@@ -353,6 +367,9 @@
         brushedYears = null;
         updateStatusBadge();
         // Dispatch reset event for coordinated views
+        window.dispatchEvent(new CustomEvent('timespanSelected', {
+          detail: { startYear: null, endYear: null, isReset: true }
+        }));
         window.dispatchEvent(new CustomEvent('crimeTimeRangeSelected', {
           detail: { startYear: minYear, endYear: maxYear, isReset: true }
         }));
@@ -375,12 +392,19 @@
       updateStatusBadge();
 
       // Snap brush to integer year boundaries
-      d3.select(this).transition().duration(200).call(
+      d3.select(this).transition().duration(180).call(
         brush.move,
         [xScale(startYear), xScale(endYear)]
       );
 
       // Dispatch CustomEvent for Coordinated Views across Dashboard
+      window.dispatchEvent(new CustomEvent('timespanSelected', {
+        detail: {
+          startYear,
+          endYear,
+          isReset: false
+        }
+      }));
       window.dispatchEvent(new CustomEvent('crimeTimeRangeSelected', {
         detail: {
           startYear,
@@ -391,18 +415,12 @@
       }));
     }
 
-    // Scrubber / Cursor Tracker interaction
-    // We add an interactive transparent overlay to capture pointer moves seamlessly
-    const overlay = chartContent.append("rect")
-      .attr("class", "stacked-overlay")
-      .attr("width", width)
-      .attr("height", height)
-      .attr("fill", "transparent")
-      .style("cursor", "crosshair")
-      .on("mousemove", onPointerMove)
-      .on("mouseleave", onPointerLeave);
+    if (brushedYears) {
+      brushG.call(brush.move, [xScale(brushedYears[0]), xScale(brushedYears[1])]);
+    }
 
     function onPointerMove(event) {
+      if (event.buttons > 0) return; // Dragging brush
       const [mx, my] = d3.pointer(event, g.node());
       if (mx < 0 || mx > width || my < 0 || my > height) {
         onPointerLeave();
@@ -680,12 +698,15 @@
   }
 
   /**
-   * Update active filter / brush status badge and reset button visibility
+   * Update active filter / brush status badge
    */
   function updateStatusBadge() {
-    if (!statusBadge || !btnReset) return;
+    if (!statusBadge) return;
 
     const parts = [];
+    if (selectedCommunity) {
+      parts.push(`Area: ${selectedCommunity}`);
+    }
     if (focusedCrime) {
       parts.push(`Focus: ${focusedCrime}`);
     }
@@ -696,10 +717,10 @@
     if (parts.length > 0) {
       statusBadge.textContent = parts.join(' | ');
       statusBadge.classList.remove('d-none');
-      btnReset.classList.remove('d-none');
+      if (btnReset) btnReset.classList.remove('d-none');
     } else {
       statusBadge.classList.add('d-none');
-      btnReset.classList.add('d-none');
+      if (btnReset) btnReset.classList.add('d-none');
     }
   }
 
@@ -709,14 +730,21 @@
   function resetAll() {
     focusedCrime = null;
     brushedYears = null;
+    selectedCommunity = null;
     updateStatusBadge();
-    draw();
+    reloadStackedData();
 
+    window.dispatchEvent(new CustomEvent('timespanSelected', {
+      detail: { startYear: null, endYear: null, isReset: true }
+    }));
     window.dispatchEvent(new CustomEvent('crimeTimeRangeSelected', {
       detail: { isReset: true }
     }));
     window.dispatchEvent(new CustomEvent('crimeCategorySelected', {
       detail: { crime: null, isReset: true }
+    }));
+    window.dispatchEvent(new CustomEvent('districtsSelected', {
+      detail: { districts: [] }
     }));
   }
 
@@ -833,7 +861,32 @@
 
     draw();
 
-    window.addEventListener('resize', debounce(draw, 180));
+    const handleResize = debounce(draw, 180);
+    window.addEventListener('resize', handleResize);
+    if (window.ResizeObserver && rootContainer) {
+      const ro = new ResizeObserver(handleResize);
+      ro.observe(rootContainer);
+    }
+
+    // Community filter listener from map
+    window.addEventListener('districtsSelected', async (e) => {
+      const districts = e.detail && e.detail.districts ? e.detail.districts : [];
+      selectedCommunity = districts.length > 0 ? districts[0] : null;
+      await reloadStackedData();
+    });
+
+    // Crime filter listener from bar chart
+    window.addEventListener('crimeSelected', (e) => {
+      const crime = e.detail && e.detail.crime ? e.detail.crime : null;
+      focusedCrime = crime;
+      updateStatusBadge();
+      draw();
+    });
+
+    // Global Dashboard Reset Listener
+    window.addEventListener('globalDashboardReset', () => {
+      resetAll();
+    });
 
   } catch (err) {
     console.error('Error initializing stacked area chart:', err);
@@ -842,5 +895,22 @@
         <p>Failed to initialize chart: ${err.message}</p>
       </div>
     `;
+  }
+
+  async function reloadStackedData() {
+    try {
+      const apiData = await getStackedAreaData({ community: selectedCommunity });
+      if (apiData && Array.isArray(apiData)) {
+        rawData = apiData.map(d => ({
+          year: +d.year,
+          crime: d.primary_type || d.crime,
+          count: +d.count
+        }));
+        updateStatusBadge();
+        draw();
+      }
+    } catch (err) {
+      console.error('Error reloading stacked area data:', err);
+    }
   }
 })();

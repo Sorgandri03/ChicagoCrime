@@ -1,13 +1,21 @@
 const BASE_URL = 'http://localhost:5000';
 
-async function getBarData() {
-  const url = BASE_URL + '/data?graph=bargraph';
+async function getBarData(filters = {}) {
+  let url = BASE_URL + '/data?graph=bargraph';
+  if (filters.community) {
+    url += `&community=${encodeURIComponent(filters.community)}`;
+  }
+  if (filters.startYear != null) {
+    url += `&start_year=${encodeURIComponent(filters.startYear)}`;
+  }
+  if (filters.endYear != null) {
+    url += `&end_year=${encodeURIComponent(filters.endYear)}`;
+  }
   try {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
     }
-
     const result = await response.json();
     return result;
   } catch (error) {
@@ -15,9 +23,12 @@ async function getBarData() {
   }
 }
 
-async function getStackedAreaData() {
-  const url = BASE_URL + '/data?graph=stackedarea';
-    try {
+async function getStackedAreaData(filters = {}) {
+  let url = BASE_URL + '/data?graph=stackedarea';
+  if (filters.community) {
+    url += `&community=${encodeURIComponent(filters.community)}`;
+  }
+  try {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
@@ -29,9 +40,18 @@ async function getStackedAreaData() {
   }
 }
 
-async function getMapData() {
-  const url = BASE_URL + '/data?graph=map';
-    try {
+async function getMapData(filters = {}) {
+  let url = BASE_URL + '/data?graph=map';
+  if (filters.crime) {
+    url += `&crime=${encodeURIComponent(filters.crime)}`;
+  }
+  if (filters.startYear != null) {
+    url += `&start_year=${encodeURIComponent(filters.startYear)}`;
+  }
+  if (filters.endYear != null) {
+    url += `&end_year=${encodeURIComponent(filters.endYear)}`;
+  }
+  try {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Response status: ${response.status}`);
@@ -43,8 +63,17 @@ async function getMapData() {
   }
 }
 
-async function getMdsData(metric = 'profile') {
-  const url = `${BASE_URL}/data?graph=scatteredplot&metric=${metric}`;
+async function getMdsData(filters = {}) {
+  const metric = typeof filters === 'string' ? filters : (filters.metric || 'profile');
+  let url = `${BASE_URL}/data?graph=scatteredplot&metric=${metric}`;
+  if (typeof filters === 'object') {
+    if (filters.startYear != null) {
+      url += `&start_year=${encodeURIComponent(filters.startYear)}`;
+    }
+    if (filters.endYear != null) {
+      url += `&end_year=${encodeURIComponent(filters.endYear)}`;
+    }
+  }
   try {
     const response = await fetch(url);
     if (!response.ok) {

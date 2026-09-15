@@ -15,6 +15,10 @@
     selectedCrime: null
   };
 
+  let selectedCommunity = null;
+  let currentStartYear = null;
+  let currentEndYear = null;
+
   // Create shared tooltip in body if not existing
   let tooltip = d3.select("body").select(".chart-tooltip.bar-chart-tooltip");
   if (tooltip.empty()) {
@@ -24,6 +28,17 @@
       .style("position", "absolute")
       .style("visibility", "hidden");
   }
+
+  let isWindowScrolling = false;
+  let scrollTimeout = null;
+  window.addEventListener('scroll', () => {
+    isWindowScrolling = true;
+    tooltip.style("visibility", "hidden");
+    clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      isWindowScrolling = false;
+    }, 120);
+  }, { passive: true });
 
   // Formatters
   const formatComma = d3.format(",");
@@ -58,7 +73,7 @@
     if (!data.length) return;
 
     const containerWidth = Math.max(container.offsetWidth || 600, 320);
-    const containerHeight = Math.max(container.offsetHeight || 380, 260);
+    const containerHeight = Math.max(container.offsetHeight || 320, 160);
 
     // Margins tailored to orientation
     const isHoriz = state.orient === 'horiz';
@@ -269,7 +284,8 @@
           .attr("rx", 3)
           .attr("fill", d => colorScale(+d.count))
           .attr("stroke", d => state.selectedCrime === d.crime ? "#e65100" : "transparent")
-          .attr("stroke-width", d => state.selectedCrime === d.crime ? 2.5 : 1);
+          .attr("stroke-width", d => state.selectedCrime === d.crime ? 2.5 : 1)
+          .style("opacity", d => (!state.selectedCrime || state.selectedCrime === d.crime ? 1 : 0.3));
 
       // Value labels at the end of each bar
       if (data.length <= 25) {
@@ -398,7 +414,8 @@
           .attr("rx", 2)
           .attr("fill", d => colorScale(+d.count))
           .attr("stroke", d => state.selectedCrime === d.crime ? "#e65100" : "transparent")
-          .attr("stroke-width", d => state.selectedCrime === d.crime ? 2.5 : 1);
+          .attr("stroke-width", d => state.selectedCrime === d.crime ? 2.5 : 1)
+          .style("opacity", d => (!state.selectedCrime || state.selectedCrime === d.crime ? 1 : 0.3));
 
       // Value labels on top of bars
       if (data.length <= 20) {
@@ -423,11 +440,50 @@
   function setupInteractions(bars, currentData, meanVal) {
     bars
       .on("mouseover", function(event, d) {
-        // Highlight this bar, dim others
-        bars.style("opacity", el => (el.crime === d.crime ? 1 : 0.35));
-        d3.select(this)
-          .style("stroke", "#0284c7")
-          .style("stroke-width", "2px");
+        if (isWindowScrolling) return;
+
+        if (state.selectedCrime !== null) {
+          // If a crime is selected:
+          // 1. Keep selected bar fully visible (opacity 1) with orange border
+          // 2. Highlight currently hovered bar with opacity 1 and blue border
+          // 3. Dim remaining bars to 0.25
+          bars.each(function(el) {
+            const isSel = el.crime === state.selectedCrime;
+            const isHov = el.crime === d.crime;
+            const barSel = d3.select(this);
+
+            if (isSel) {
+              barSel
+                .style("opacity", 1)
+                .style("stroke", "#e65100")
+                .style("stroke-width", "2.5px")
+                .classed("selected", true);
+            } else if (isHov) {
+              barSel
+                .style("opacity", 1)
+                .style("stroke", "#0284c7")
+                .style("stroke-width", "2px")
+                .classed("selected", false);
+            } else {
+              barSel
+                .style("opacity", 0.25)
+                .style("stroke", "transparent")
+                .style("stroke-width", "1px")
+                .classed("selected", false);
+            }
+          });
+        } else {
+          // No crime selected: hover focus on this bar, dim others
+          bars.each(function(el) {
+            const isHov = el.crime === d.crime;
+            const barSel = d3.select(this);
+            barSel
+              .style("opacity", isHov ? 1 : 0.35)
+              .style("stroke", isHov ? "#0284c7" : "transparent")
+              .style("stroke-width", isHov ? "2px" : "1px")
+              .classed("selected", false);
+          });
+        }
 
         // Compute rank among all crimes
         const rankIndex = rawData.findIndex(r => r.crime === d.crime) + 1;
@@ -462,9 +518,22 @@
           `);
       })
       .on("mousemove", function(event) {
+        if (isWindowScrolling) return;
+        const tooltipEl = tooltip.node();
+        const tooltipWidth = tooltipEl ? tooltipEl.offsetWidth : 180;
+        let left = event.pageX + 14;
+        let top = event.pageY - 28;
+
+        if (event.clientX + tooltipWidth + 24 > window.innerWidth) {
+          left = event.pageX - tooltipWidth - 14;
+        }
+        if (event.clientY - 35 < 0) {
+          top = event.pageY + 18;
+        }
+
         tooltip
-          .style("left", (event.pageX + 14) + "px")
-          .style("top", (event.pageY - 28) + "px");
+          .style("left", `${left}px`)
+          .style("top", `${top}px`);
       })
       .on("mouseout", function() {
         updateSelectionHighlight();
@@ -495,6 +564,7 @@
       bars
         .style("opacity", 1)
         .style("stroke", "transparent")
+        .style("stroke-width", "1px")
         .classed("selected", false);
     } else {
       bars
@@ -602,10 +672,7 @@
     totalCrimes = d3.sum(rawData, d => d.count);
 
     // Update total badge in card header
-    const totalBadge = document.getElementById('bar-total-badge');
-    if (totalBadge) {
-      totalBadge.textContent = `${formatComma(totalCrimes)} Crimes (${rawData.length} Types)`;
-    }
+    updateBarHeaderBadges();
 
     setupControls();
     draw();
@@ -617,7 +684,68 @@
       const ro = new ResizeObserver(handleResize);
       ro.observe(container);
     }
+
+    // Coordinated View Listeners
+    window.addEventListener('districtsSelected', async (e) => {
+      const districts = e.detail && e.detail.districts ? e.detail.districts : [];
+      selectedCommunity = districts.length > 0 ? districts[0] : null;
+      await reloadBarData();
+    });
+
+    window.addEventListener('timespanSelected', async (e) => {
+      currentStartYear = e.detail && e.detail.startYear ? e.detail.startYear : null;
+      currentEndYear = e.detail && e.detail.endYear ? e.detail.endYear : null;
+      await reloadBarData();
+    });
+
+    window.addEventListener('crimeTimeRangeSelected', async (e) => {
+      if (e.detail && e.detail.isReset) {
+        currentStartYear = null;
+        currentEndYear = null;
+        await reloadBarData();
+      }
+    });
+
+    // Global Dashboard Reset Listener
+    window.addEventListener('globalDashboardReset', async () => {
+      state.selectedCrime = null;
+      selectedCommunity = null;
+      currentStartYear = null;
+      currentEndYear = null;
+      await reloadBarData();
+    });
+
   } catch (err) {
     console.error('Error initializing bar chart:', err);
+  }
+
+  async function reloadBarData() {
+    try {
+      const apiData = await getBarData({
+        community: selectedCommunity,
+        startYear: currentStartYear,
+        endYear: currentEndYear
+      });
+      if (!apiData || !Array.isArray(apiData)) return;
+
+      rawData = apiData.map(d => ({ crime: String(d.crime).trim(), count: +d.count }));
+      rawData.sort((a, b) => b.count - a.count);
+      totalCrimes = d3.sum(rawData, d => d.count);
+
+      updateBarHeaderBadges();
+      draw();
+    } catch (err) {
+      console.error('Error reloading bar data:', err);
+    }
+  }
+
+  function updateBarHeaderBadges() {
+    const totalBadge = document.getElementById('bar-total-badge');
+    if (totalBadge) {
+      let label = `${formatComma(totalCrimes)} Crimes`;
+      if (selectedCommunity) label += ` | Area: ${selectedCommunity}`;
+      if (currentStartYear != null && currentEndYear != null) label += ` | ${currentStartYear}–${currentEndYear}`;
+      totalBadge.textContent = label;
+    }
   }
 })();

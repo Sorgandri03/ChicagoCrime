@@ -17,22 +17,29 @@
 <body>
     <!-- Navigation Bar -->
     <nav class="navbar navbar-dark">
-        <div class="container-fluid px-4">
-            <span class="navbar-brand">
-                <i class="bi bi-map-fill"></i>
-                Chicago Crime Analytics
-            </span>
-            <span class="navbar-text">
-                Sapienza Visual Analytics Project
-            </span>
+        <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <span class="navbar-brand mb-0">
+                    <i class="bi bi-shield-shaded me-2"></i>Chicago Crime Analytics
+                </span>
+                <span class="navbar-text d-none d-md-inline">
+                    Sapienza Visual Analytics Project
+                </span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-light d-flex align-items-center gap-2 px-3 py-1 shadow-sm" id="btn-global-reset" title="Reset all graph filters, time brushing, and community selections">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    <span class="fw-semibold">Reset Dashboard</span>
+                </button>
+            </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <div class="container-fluid main-container px-4">
+    <div class="container-fluid main-container">
         <div class="row">
             <!-- Crime Distribution by Type - Bar Graph -->
-            <div class="col-lg-8 col-md-12 mb-3">
+            <div class="col-lg-8 col-md-12 mb-2 mb-lg-0">
                 <div class="viz-card">
                     <div class="viz-card-header d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
                         <h5 class="mb-0">
@@ -89,13 +96,14 @@
             </div>
 
             <!-- Geographic Distribution - Map -->
-            <div class="col-lg-4 col-md-12 mb-3">
+            <div class="col-lg-4 col-md-12 mb-2 mb-lg-0">
                 <div class="viz-card">
-                    <div class="viz-card-header">
-                        <h5>
+                    <div class="viz-card-header d-flex justify-content-between align-items-center flex-wrap gap-1 py-2">
+                        <h5 class="mb-0">
                             <i class="bi bi-geo-alt-fill"></i>
                             Geographic Distribution
                         </h5>
+                        <span id="map-time-badge" class="badge bg-light text-primary font-monospace d-none" style="font-size:0.75rem; font-weight:600;"></span>
                     </div>
                     <div class="viz-card-body">
                         <div class="graph-container-tall">
@@ -108,7 +116,7 @@
 
         <div class="row">
             <!-- Crime Trends Over Time - Stacked Area Chart -->
-            <div class="col-lg-8 col-md-12 mb-3">
+            <div class="col-lg-8 col-md-12 mb-2 mb-lg-0">
                 <div class="viz-card">
                     <div class="viz-card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
                         <h5 class="mb-0">
@@ -133,11 +141,8 @@
                                 <button type="button" class="btn btn-outline-light" data-top="10" id="btn-top-10">Top 10</button>
                                 <button type="button" class="btn btn-outline-light" data-top="all" id="btn-top-all">All</button>
                             </div>
-                            <!-- Active selection status & Reset Button -->
+                            <!-- Active selection status badge -->
                             <span id="stacked-status-badge" class="badge bg-light text-primary d-none"></span>
-                            <button type="button" class="btn btn-sm btn-light py-0 px-2 d-none" id="btn-reset-stacked" title="Reset focus and time selection">
-                                <i class="bi bi-arrow-counterclockwise"></i> Reset
-                            </button>
                         </div>
                     </div>
                     <div class="viz-card-body p-2">
@@ -149,12 +154,13 @@
             </div>
 
             <!-- Strategic District Similarity - MDS Scatter Plot -->
-            <div class="col-lg-4 col-md-12 mb-3">
+            <div class="col-lg-4 col-md-12 mb-2 mb-lg-0">
                 <div class="viz-card">
                     <div class="viz-card-header d-flex justify-content-between align-items-center flex-wrap gap-1 py-2">
                         <h5 class="mb-0">
                             <i class="bi bi-diagram-3-fill me-1"></i>
                             District Similarity (MDS)
+                            <span id="mds-time-badge" class="badge bg-light text-primary ms-2 font-monospace d-none" style="font-size:0.75rem; font-weight:600;"></span>
                         </h5>
                         <div class="d-flex align-items-center gap-1" id="mds-controls">
                             <!-- Metric Toggle: Profile vs Volume -->
@@ -162,10 +168,6 @@
                                 <button type="button" class="btn btn-outline-light active py-0 px-2" id="mds-metric-profile" title="Crime Mixture % (Strategic profile similarity)" style="font-size: 0.75rem;">Profile</button>
                                 <button type="button" class="btn btn-outline-light py-0 px-2" id="mds-metric-volume" title="Standardized Crime Volume" style="font-size: 0.75rem;">Volume</button>
                             </div>
-                            <!-- Reset Selection -->
-                            <button type="button" class="btn btn-outline-light py-0 px-2" id="mds-reset-btn" title="Reset Selection" style="font-size: 0.75rem;">
-                                <i class="bi bi-arrow-counterclockwise"></i>
-                            </button>
                         </div>
                     </div>
                     <div class="viz-card-body">
@@ -179,10 +181,10 @@
     </div>
 
     <!-- Footer -->
-    <footer class="text-center">
-        <div class="container">
-            <p class="mb-1">&copy; 2026 Andrea Sorge, Lorenzo Berretta, Michael Aldeni</p>
-            <p class="mb-0 small">Data visualization powered by D3.js and Bootstrap</p>
+    <footer class="text-center py-1">
+        <div class="container-fluid px-3">
+            <span class="small me-3">&copy; 2026 Andrea Sorge, Lorenzo Berretta, Michael Aldeni</span>
+            <span class="small text-white-50">Data visualization powered by D3.js and Bootstrap</span>
         </div>
     </footer>
 
@@ -191,5 +193,10 @@
     <script src="/app/graphs/map.js"></script>
     <script src="/app/graphs/stackedarea.js"></script>
     <script src="/app/graphs/scatteredplot.js"></script>
+    <script>
+        document.getElementById('btn-global-reset')?.addEventListener('click', () => {
+            window.dispatchEvent(new CustomEvent('globalDashboardReset'));
+        });
+    </script>
 </body>
 </html>

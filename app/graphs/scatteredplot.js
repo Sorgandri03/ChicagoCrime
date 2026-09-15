@@ -1,12 +1,11 @@
-(async function() {
+(async function () {
   const { getMdsData } = await import("../api.js");
   const container = document.getElementById('scatteredplot');
   if (!container) return;
 
   let currentMetric = 'profile';
   let mdsData = [];
-  let selectedDistricts = new Set();
-  let activeCluster = null;
+  let selectedDistricts = new Set(); // Reflected from Map selections only
 
   // Formatters
   const formatComma = d3.format(",");
@@ -29,10 +28,15 @@
       .style("visibility", "hidden");
   }
 
+  window.addEventListener('scroll', () => {
+    tooltip.style("visibility", "hidden");
+  }, { passive: true });
+
   function draw() {
     if (!mdsData || !mdsData.length) return;
 
-    const margin = { top: 22, right: 20, bottom: 42, left: 45 };
+    // Generous top margin for spacious 2-row legend
+    const margin = { top: 44, right: 18, bottom: 38, left: 44 };
     const width = Math.max(100, (container.offsetWidth || 380) - margin.left - margin.right);
     const height = Math.max(100, (container.offsetHeight || 380) - margin.top - margin.bottom);
 
@@ -40,11 +44,11 @@
 
     const svg = d3.select("#scatteredplot")
       .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-        .style("display", "block")
-        .style("overflow", "visible");
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+      .style("display", "block")
+      .style("overflow", "visible");
 
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left}, ${margin.top})`);
@@ -99,7 +103,7 @@
     // Axis labels
     svg.append("text")
       .attr("x", margin.left + width / 2)
-      .attr("y", height + margin.top + 34)
+      .attr("y", height + margin.top + 30)
       .attr("text-anchor", "middle")
       .style("font-size", "10px")
       .style("font-weight", "500")
@@ -117,7 +121,7 @@
       .text("MDS Dimension 2");
 
     // ==========================================
-    // CLUSTER LEGEND (Top of chart)
+    // CLUSTER LEGEND (Top of chart - enlarged, legible, 2 rows)
     // ==========================================
     const clustersInfo = [];
     const seen = new Set();
@@ -131,107 +135,59 @@
 
     const legendG = svg.append("g")
       .attr("class", "mds-legend")
-      .attr("transform", `translate(${margin.left}, 8)`);
+      .attr("transform", `translate(${margin.left}, 4)`);
 
-    let curX = 0;
-    clustersInfo.forEach((cl) => {
+    const colWidth = Math.max(170, (width + margin.right) / 2);
+    clustersInfo.forEach((cl, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const xPos = col * colWidth;
+      const yPos = row * 16;
+
       const item = legendG.append("g")
-        .attr("transform", `translate(${curX}, 0)`)
-        .style("cursor", "pointer")
-        .on("click", () => {
-          if (activeCluster === cl.id) {
-            activeCluster = null;
-            selectedDistricts.clear();
-          } else {
-            activeCluster = cl.id;
-            selectedDistricts.clear();
-            mdsData.filter(d => d.cluster === cl.id).forEach(d => selectedDistricts.add(d.community));
-          }
-          updateVisualStates();
-          dispatchSelection();
-        });
+        .attr("transform", `translate(${xPos}, ${yPos})`);
 
       item.append("circle")
-        .attr("r", 4)
-        .attr("cx", 4)
+        .attr("r", 5)
+        .attr("cx", 6)
         .attr("cy", 0)
         .attr("fill", clusterColors[cl.id % clusterColors.length]);
 
-      const txt = item.append("text")
-        .attr("x", 11)
-        .attr("y", 3)
-        .style("font-size", "8.5px")
-        .style("font-weight", activeCluster === cl.id ? "700" : "500")
-        .style("fill", activeCluster === cl.id ? "#0f172a" : "#64748b")
-        .text(cl.label.length > 20 ? cl.label.slice(0, 18) + "…" : cl.label);
-
-      curX += (cl.label.length * 5.2) + 24;
+      item.append("text")
+        .attr("x", 16)
+        .attr("y", 3.5)
+        .style("font-size", "10.5px")
+        .style("font-weight", "600")
+        .style("fill", "#334155")
+        .text(cl.label);
     });
 
     // ==========================================
-    // D3 2D BRUSH
-    // ==========================================
-    const brush = d3.brush()
-      .extent([[0, 0], [width, height]])
-      .on("start brush end", brushed);
-
-    const brushG = g.append("g")
-      .attr("class", "brush mds-brush")
-      .call(brush);
-
-    function brushed(event) {
-      if (!event.selection) {
-        if (event.sourceEvent) {
-          // Cleared
-          selectedDistricts.clear();
-          activeCluster = null;
-          updateVisualStates();
-          dispatchSelection();
-        }
-        return;
-      }
-      const [[x0, y0], [x1, y1]] = event.selection;
-      selectedDistricts.clear();
-      activeCluster = null;
-
-      mdsData.forEach(d => {
-        const cx = x(d.x);
-        const cy = y(d.y);
-        if (cx >= x0 && cx <= x1 && cy >= y0 && cy <= y1) {
-          selectedDistricts.add(d.community);
-        }
-      });
-
-      updateVisualStates();
-      dispatchSelection();
-    }
-
-    // ==========================================
-    // DATA POINTS (DOTS)
+    // DATA POINTS (DOTS) - Hover and Reactive Only
     // ==========================================
     const dotsG = g.append("g").attr("class", "dots-group");
 
     const dots = dotsG.selectAll(".mds-dot")
       .data(mdsData, d => d.community)
       .join("circle")
-        .attr("class", "mds-dot")
-        .attr("cx", d => x(d.x))
-        .attr("cy", d => y(d.y))
-        .attr("r", 5)
-        .attr("fill", d => clusterColors[d.cluster % clusterColors.length])
-        .attr("stroke", "#ffffff")
-        .attr("stroke-width", 1)
-        .attr("opacity", 0.85);
+      .attr("class", "mds-dot")
+      .attr("cx", d => x(d.x))
+      .attr("cy", d => y(d.y))
+      .attr("r", 5)
+      .attr("fill", d => clusterColors[d.cluster % clusterColors.length])
+      .attr("stroke", "#ffffff")
+      .attr("stroke-width", 1)
+      .attr("opacity", 0.85);
 
     dots
-      .on("mouseover", function(event, d) {
+      .on("mouseover", function (event, d) {
         d3.select(this)
           .attr("r", 7)
           .attr("stroke", "#0f172a")
           .attr("stroke-width", 2);
 
         // Build top crimes preview
-        const topHtml = (d.top_crimes || []).map((c, idx) => 
+        const topHtml = (d.top_crimes || []).map((c, idx) =>
           `<div style="display:flex; justify-content:space-between; gap:8px; font-size:11px;">
             <span style="color:#cbd5e1;">${idx + 1}. ${c.crime}:</span>
             <strong style="color:#ffffff;">${c.pct}%</strong>
@@ -258,31 +214,24 @@
         // Notify map of hover
         window.dispatchEvent(new CustomEvent('districtHovered', { detail: { community: d.community } }));
       })
-      .on("mousemove", function(event) {
+      .on("mousemove", function (event) {
         tooltip
-          .style("left", (event.pageX + 12) + "px")
-          .style("top", (event.pageY - 24) + "px");
+          .style("left", (event.pageX + 14) + "px")
+          .style("top", (event.pageY - 28) + "px");
       })
-      .on("mouseout", function(event, d) {
+      .on("mouseout", function (event, d) {
+        const isSelected = selectedDistricts.has(d.community);
         d3.select(this)
-          .attr("r", selectedDistricts.has(d.community) ? 6.5 : 5);
+          .attr("r", isSelected ? 7 : 5)
+          .attr("stroke", isSelected ? "#e65100" : "#ffffff")
+          .attr("stroke-width", isSelected ? 2.5 : 1);
         tooltip.style("visibility", "hidden");
         updateVisualStates();
         window.dispatchEvent(new CustomEvent('districtHovered', { detail: { community: null } }));
-      })
-      .on("click", function(event, d) {
-        event.stopPropagation();
-        if (selectedDistricts.has(d.community)) {
-          selectedDistricts.delete(d.community);
-        } else {
-          selectedDistricts.add(d.community);
-        }
-        updateVisualStates();
-        dispatchSelection();
       });
 
     function updateVisualStates() {
-      if (selectedDistricts.size === 0 && activeCluster === null) {
+      if (selectedDistricts.size === 0) {
         dots
           .attr("opacity", 0.85)
           .attr("r", 5)
@@ -290,11 +239,11 @@
           .attr("stroke-width", 1)
           .classed("selected", false);
       } else {
-        dots.each(function(d) {
-          const isSelected = selectedDistricts.has(d.community) || (activeCluster !== null && d.cluster === activeCluster);
+        dots.each(function (d) {
+          const isSelected = selectedDistricts.has(d.community);
           d3.select(this)
-            .attr("opacity", isSelected ? 1 : 0.2)
-            .attr("r", isSelected ? 6.5 : 4)
+            .attr("opacity", isSelected ? 1 : 0.22)
+            .attr("r", isSelected ? 7 : 4)
             .attr("stroke", isSelected ? "#e65100" : "#ffffff")
             .attr("stroke-width", isSelected ? 2.5 : 0.5)
             .classed("selected", isSelected);
@@ -302,21 +251,8 @@
       }
     }
 
-    function dispatchSelection() {
-      const arr = Array.from(selectedDistricts);
-      window.dispatchEvent(new CustomEvent('districtsSelected', {
-        detail: { districts: arr }
-      }));
-    }
-
-    // Expose reset for external UI
-    window._mdsReset = function() {
-      selectedDistricts.clear();
-      activeCluster = null;
-      brushG.call(brush.move, null);
-      updateVisualStates();
-      dispatchSelection();
-    };
+    window._updateVisualStates = updateVisualStates;
+    updateVisualStates();
 
     // Listen for hover from the map
     window.addEventListener('districtHovered', (e) => {
@@ -325,10 +261,10 @@
         updateVisualStates();
         return;
       }
-      dots.each(function(d) {
+      dots.each(function (d) {
         if (d.community === comm) {
           d3.select(this)
-            .attr("r", 8)
+            .attr("r", 8.5)
             .attr("stroke", "#0f172a")
             .attr("stroke-width", 2.5)
             .attr("opacity", 1);
@@ -343,7 +279,6 @@
   function setupControls() {
     const metricProfileBtn = document.getElementById('mds-metric-profile');
     const metricVolumeBtn = document.getElementById('mds-metric-volume');
-    const resetBtn = document.getElementById('mds-reset-btn');
 
     if (metricProfileBtn && metricVolumeBtn) {
       metricProfileBtn.addEventListener('click', async () => {
@@ -364,25 +299,35 @@
         }
       });
     }
-
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        if (window._mdsReset) {
-          window._mdsReset();
-        }
-      });
-    }
   }
+
+  let currentStartYear = null;
+  let currentEndYear = null;
 
   async function loadAndDraw() {
     try {
-      const data = await getMdsData(currentMetric);
+      const data = await getMdsData({
+        metric: currentMetric,
+        startYear: currentStartYear,
+        endYear: currentEndYear
+      });
       if (Array.isArray(data) && data.length) {
         mdsData = data;
         draw();
       }
     } catch (err) {
       console.error('Error loading MDS data:', err);
+    }
+  }
+
+  function updateMdsBadge() {
+    const badge = document.getElementById('mds-time-badge');
+    if (!badge) return;
+    if (currentStartYear != null && currentEndYear != null) {
+      badge.textContent = `${currentStartYear}–${currentEndYear}`;
+      badge.classList.remove('d-none');
+    } else {
+      badge.classList.add('d-none');
     }
   }
 
@@ -406,5 +351,48 @@
     const ro = new ResizeObserver(handleResize);
     ro.observe(container);
   }
+
+  // Coordinated View Listeners
+  window.addEventListener('timespanSelected', async (e) => {
+    currentStartYear = e.detail && e.detail.startYear ? e.detail.startYear : null;
+    currentEndYear = e.detail && e.detail.endYear ? e.detail.endYear : null;
+    updateMdsBadge();
+    await loadAndDraw();
+  });
+
+  window.addEventListener('crimeTimeRangeSelected', async (e) => {
+    if (e.detail && e.detail.isReset) {
+      currentStartYear = null;
+      currentEndYear = null;
+      updateMdsBadge();
+      await loadAndDraw();
+    }
+  });
+
+  window.addEventListener('districtsSelected', (e) => {
+    const districts = e.detail && e.detail.districts ? e.detail.districts : [];
+    selectedDistricts = new Set(districts);
+    if (window._updateVisualStates) {
+      window._updateVisualStates();
+    } else {
+      draw();
+    }
+  });
+
+  // Global Dashboard Reset Listener
+  window.addEventListener('globalDashboardReset', async () => {
+    selectedDistricts.clear();
+    currentStartYear = null;
+    currentEndYear = null;
+    currentMetric = 'profile';
+    const metricProfileBtn = document.getElementById('mds-metric-profile');
+    const metricVolumeBtn = document.getElementById('mds-metric-volume');
+    if (metricProfileBtn && metricVolumeBtn) {
+      metricProfileBtn.classList.add('active');
+      metricVolumeBtn.classList.remove('active');
+    }
+    updateMdsBadge();
+    await loadAndDraw();
+  });
 
 })();

@@ -1,13 +1,11 @@
+import os
+import json
 import pandas
+from flask import Flask, request
+from flask_cors import CORS
 from sklearn.manifold import MDS
 from sklearn.preprocessing import StandardScaler
-from flask import request
-from flask import Flask
-from flask_cors import CORS
-import os
-
 from sklearn.cluster import KMeans
-import json
 
 # Backend
 # Can be found at http://localhost:5000
@@ -16,29 +14,46 @@ app = Flask(__name__)
 CORS(app)
 
 mds_cache = {}
+agg_data = None
 
-def calculate_mds(metric='profile'):
-    global mds_cache
-    if metric in mds_cache:
-        return mds_cache[metric]
-
-    base_dir = os.path.dirname(__file__)
-    csv_path = os.path.join(base_dir, 'data', 'community_crimes.csv')
+def load_aggregated_data():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(base_dir, 'data', 'crimes_2020_2025_by_community.csv')
     if not os.path.exists(csv_path):
-        csv_path = os.path.join('data', 'community_crimes.csv')
+        csv_path = os.path.join('data', 'crimes_2020_2025_by_community.csv')
+    df = pandas.read_csv(csv_path)
+    return df
 
-    df = pandas.read_csv(csv_path, index_col='community_name')
+def calculate_mds(metric='profile', start_year=None, end_year=None):
+    global mds_cache, agg_data
+    cache_key = f"{metric}_{start_year}_{end_year}"
+    if cache_key in mds_cache:
+        return mds_cache[cache_key]
+
+    sub = agg_data
+    if start_year is not None:
+        sub = sub[sub['year'] >= start_year]
+    if end_year is not None:
+        sub = sub[sub['year'] <= end_year]
+
+    pivot = sub.pivot_table(index='community_name', columns='primary_type', values='count', aggfunc='sum', fill_value=0)
+    all_communities = sorted(agg_data['community_name'].unique())
+    pivot = pivot.reindex(all_communities, fill_value=0)
+
+    row_sums = pivot.sum(axis=1)
+    row_sums_safe = row_sums.copy()
+    row_sums_safe[row_sums_safe == 0] = 1
 
     if metric == 'volume':
         scaler = StandardScaler()
-        feat_matrix = scaler.fit_transform(df)
+        feat_matrix = scaler.fit_transform(pivot)
     else:  # 'profile' (relative proportions)
-        feat_matrix = df.div(df.sum(axis=1), axis=0).values
+        feat_matrix = pivot.div(row_sums_safe, axis=0).values
 
     mds = MDS(n_components=2, random_state=42, n_init=4)
     coords = mds.fit_transform(feat_matrix)
 
-    proportions = df.div(df.sum(axis=1), axis=0)
+    proportions = pivot.div(row_sums_safe, axis=0)
     kmeans = KMeans(n_clusters=4, random_state=42, n_init=10)
     cluster_ids = kmeans.fit_predict(proportions)
 
@@ -48,7 +63,8 @@ def calculate_mds(metric='profile'):
         mask = (cluster_ids == k)
         cluster_mean = proportions[mask].mean()
         diff = cluster_mean - city_mean
-        top_distinctive = diff.sort_values(ascending=False).index[0]
+        sorted_diff = diff.sort_values(ascending=False)
+        top_distinctive = sorted_diff.index[0] if len(sorted_diff) > 0 else 'CRIME'
         if top_distinctive == 'THEFT':
             name = 'Property & Theft Focus'
         elif top_distinctive in ['BATTERY', 'WEAPONS VIOLATION', 'ASSAULT', 'HOMICIDE']:
@@ -60,73 +76,99 @@ def calculate_mds(metric='profile'):
         cluster_names[k] = name
 
     results = []
-    for i, community in enumerate(df.index):
-        row = df.loc[community]
+    for i, community in enumerate(pivot.index):
+        row = pivot.loc[community]
         total = int(row.sum())
         top_3 = row.sort_values(ascending=False).head(3)
-        top_list = [{'crime': c, 'count': int(v), 'pct': round((v / total) * 100, 1)} for c, v in top_3.items()]
+        top_list = [{'crime': c, 'count': int(v), 'pct': round((v / max(1, total)) * 100, 1)} for c, v in top_3.items()]
         results.append({
             'community': community,
             'x': round(float(coords[i, 0]), 4),
             'y': round(float(coords[i, 1]), 4),
             'cluster': int(cluster_ids[i]),
-            'cluster_label': cluster_names[cluster_ids[i]],
+            'cluster_label': cluster_names.get(cluster_ids[i], 'General Crime Profile'),
             'total_crimes': total,
             'top_crimes': top_list
         })
 
     json_data = json.dumps(results)
-    mds_cache[metric] = json_data
+    mds_cache[cache_key] = json_data
     return json_data
 
-def load_data():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    data = pandas.read_csv(os.path.join(base_dir, 'data', '5anni.csv'))
-    return data
-    
 @app.route('/mds', methods=['GET', 'POST'])
 def get_mds():
     metric = request.args.get('metric', 'profile')
-    if request.is_json and request.json and 'metric' in request.json:
-        metric = request.json['metric']
-    res = calculate_mds(metric)
+    start_year = request.args.get('start_year', type=int)
+    end_year = request.args.get('end_year', type=int)
+    if request.is_json and request.json:
+        if 'metric' in request.json:
+            metric = request.json['metric']
+        if 'start_year' in request.json:
+            start_year = int(request.json['start_year'])
+        if 'end_year' in request.json:
+            end_year = int(request.json['end_year'])
+    res = calculate_mds(metric, start_year, end_year)
     return res, 200, {'Content-Type': 'application/json'}
 
 @app.route('/data', methods=['GET'])
 def get_data():
-    global data
+    global agg_data
     graph = request.args.get('graph')
+    community = request.args.get('community')
+    crime = request.args.get('crime')
+    start_year = request.args.get('start_year', type=int)
+    end_year = request.args.get('end_year', type=int)
 
     match graph:
         case 'scatteredplot':
             metric = request.args.get('metric', 'profile')
-            res = calculate_mds(metric)
+            res = calculate_mds(metric, start_year, end_year)
             return res, 200, {'Content-Type': 'application/json'}
+
         case 'bargraph':
-            counts = data['primary_type'].value_counts().reset_index()
+            sub = agg_data
+            if community:
+                sub = sub[sub['community_name'].str.upper() == community.upper()]
+            if start_year is not None:
+                sub = sub[sub['year'] >= start_year]
+            if end_year is not None:
+                sub = sub[sub['year'] <= end_year]
+
+            counts = sub.groupby('primary_type')['count'].sum().reset_index()
             counts.columns = ['crime', 'count']
+            counts = counts.sort_values(by='count', ascending=False)
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
+
         case 'map':
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            counts = pandas.read_csv(os.path.join(base_dir, 'data', 'crime_by_community_area.csv'))
+            sub = agg_data
+            if crime:
+                sub = sub[sub['primary_type'].str.upper() == crime.upper()]
+            if start_year is not None:
+                sub = sub[sub['year'] >= start_year]
+            if end_year is not None:
+                sub = sub[sub['year'] <= end_year]
+
+            counts = sub.groupby('community_name')['count'].sum().reset_index()
+            counts.columns = ['community_area', 'crime_count']
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
+
         case 'stackedarea':
-            counts = data[['year', 'primary_type']].value_counts().reset_index()
-            counts.columns = ['year', 'primary_type', 'count']
-            counts['year'] = pandas.to_numeric(counts['year'], errors='coerce')
-            counts = counts.dropna(subset=['year'])
-            counts['year'] = counts['year'].astype(int)
+            sub = agg_data
+            if community:
+                sub = sub[sub['community_name'].str.upper() == community.upper()]
+
+            counts = sub.groupby(['year', 'primary_type'])['count'].sum().reset_index()
             counts = counts.sort_values(['year', 'count']).reset_index(drop=True)
             json_str = counts.to_json(orient='records')
             return json_str, 200, {'Content-Type': 'application/json'}
+
         case _:
             return 'Invalid graph type', 400
-    
-    return data.to_json()
+
+# Initialize global dataset
+agg_data = load_aggregated_data()
 
 if __name__ == '__main__':
-    global data
-    data = load_data()
-    app.run(debug=True)
+    app.run(debug=True)
