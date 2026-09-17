@@ -3,7 +3,6 @@
   const container = document.getElementById('scatteredplot');
   if (!container) return;
 
-  let currentMetric = 'profile';
   let mdsData = [];
   let selectedDistricts = new Set(); // Reflected from Map selections only
 
@@ -375,29 +374,6 @@
   // CONTROLS
   // ==========================================
   function setupControls() {
-    const metricProfileBtn = document.getElementById('mds-metric-profile');
-    const metricVolumeBtn = document.getElementById('mds-metric-volume');
-
-    if (metricProfileBtn && metricVolumeBtn) {
-      metricProfileBtn.addEventListener('click', async () => {
-        if (currentMetric !== 'profile') {
-          currentMetric = 'profile';
-          metricProfileBtn.classList.add('active');
-          metricVolumeBtn.classList.remove('active');
-          await loadAndDraw();
-        }
-      });
-
-      metricVolumeBtn.addEventListener('click', async () => {
-        if (currentMetric !== 'volume') {
-          currentMetric = 'volume';
-          metricVolumeBtn.classList.add('active');
-          metricProfileBtn.classList.remove('active');
-          await loadAndDraw();
-        }
-      });
-    }
-
     const distBadge = document.getElementById('mds-districts-badge');
     if (distBadge) {
       distBadge.addEventListener('click', () => {
@@ -417,7 +393,6 @@
   async function loadAndDraw() {
     try {
       const data = await getMdsData({
-        metric: currentMetric,
         startYear: currentStartYear,
         endYear: currentEndYear
       });
@@ -511,13 +486,6 @@
     selectedDistricts.clear();
     currentStartYear = null;
     currentEndYear = null;
-    currentMetric = 'profile';
-    const metricProfileBtn = document.getElementById('mds-metric-profile');
-    const metricVolumeBtn = document.getElementById('mds-metric-volume');
-    if (metricProfileBtn && metricVolumeBtn) {
-      metricProfileBtn.classList.add('active');
-      metricVolumeBtn.classList.remove('active');
-    }
     updateMdsBadge();
     await loadAndDraw();
   });

@@ -24,9 +24,9 @@ def load_aggregated_data():
     df = pandas.read_csv(csv_path)
     return df
 
-def calculate_mds(metric='profile', start_year=None, end_year=None):
+def calculate_mds(start_year=None, end_year=None, **kwargs):
     global mds_cache, agg_data
-    cache_key = f"{metric}_{start_year}_{end_year}"
+    cache_key = f"{start_year}_{end_year}"
     if cache_key in mds_cache:
         return mds_cache[cache_key]
 
@@ -44,11 +44,7 @@ def calculate_mds(metric='profile', start_year=None, end_year=None):
     row_sums_safe = row_sums.copy()
     row_sums_safe[row_sums_safe == 0] = 1
 
-    if metric == 'volume':
-        scaler = StandardScaler()
-        feat_matrix = scaler.fit_transform(pivot)
-    else:  # 'profile' (relative proportions)
-        feat_matrix = pivot.div(row_sums_safe, axis=0).values
+    feat_matrix = pivot.div(row_sums_safe, axis=0).values
 
     mds = MDS(n_components=2, random_state=42, n_init=4)
     coords = mds.fit_transform(feat_matrix)
@@ -66,9 +62,9 @@ def calculate_mds(metric='profile', start_year=None, end_year=None):
         sorted_diff = diff.sort_values(ascending=False)
         top_distinctive = sorted_diff.index[0] if len(sorted_diff) > 0 else 'CRIME'
         if top_distinctive == 'THEFT':
-            name = 'Property & Theft Focus'
+            name = 'Property & Theft'
         elif top_distinctive in ['BATTERY', 'WEAPONS VIOLATION', 'ASSAULT', 'HOMICIDE']:
-            name = 'Violent & Weapons Focus'
+            name = 'Violent & Weapons'
         elif top_distinctive == 'DECEPTIVE PRACTICE':
             name = 'Fraud & Deceptive Practice'
         elif top_distinctive == 'MOTOR VEHICLE THEFT':
@@ -99,17 +95,14 @@ def calculate_mds(metric='profile', start_year=None, end_year=None):
 
 @app.route('/mds', methods=['GET', 'POST'])
 def get_mds():
-    metric = request.args.get('metric', 'profile')
     start_year = request.args.get('start_year', type=int)
     end_year = request.args.get('end_year', type=int)
     if request.is_json and request.json:
-        if 'metric' in request.json:
-            metric = request.json['metric']
         if 'start_year' in request.json:
             start_year = int(request.json['start_year'])
         if 'end_year' in request.json:
             end_year = int(request.json['end_year'])
-    res = calculate_mds(metric, start_year, end_year)
+    res = calculate_mds(start_year, end_year)
     return res, 200, {'Content-Type': 'application/json'}
 
 @app.route('/data', methods=['GET'])
@@ -123,8 +116,7 @@ def get_data():
 
     match graph:
         case 'scatteredplot':
-            metric = request.args.get('metric', 'profile')
-            res = calculate_mds(metric, start_year, end_year)
+            res = calculate_mds(start_year, end_year)
             return res, 200, {'Content-Type': 'application/json'}
 
         case 'bargraph':
@@ -179,4 +171,4 @@ def get_data():
 agg_data = load_aggregated_data()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True)

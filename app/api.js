@@ -66,9 +66,8 @@ async function getMapData(filters = {}) {
 }
 
 async function getMdsData(filters = {}) {
-  const metric = typeof filters === 'string' ? filters : (filters.metric || 'profile');
-  let url = `${BASE_URL}/data?graph=scatteredplot&metric=${metric}`;
-  if (typeof filters === 'object') {
+  let url = `${BASE_URL}/data?graph=scatteredplot`;
+  if (typeof filters === 'object' && filters !== null) {
     if (filters.startYear != null) {
       url += `&start_year=${encodeURIComponent(filters.startYear)}`;
     }
