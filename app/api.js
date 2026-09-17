@@ -3,7 +3,8 @@ const BASE_URL = 'http://localhost:5000';
 async function getBarData(filters = {}) {
   let url = BASE_URL + '/data?graph=bargraph';
   if (filters.community) {
-    url += `&community=${encodeURIComponent(filters.community)}`;
+    const commVal = Array.isArray(filters.community) ? filters.community.join(',') : filters.community;
+    url += `&community=${encodeURIComponent(commVal)}`;
   }
   if (filters.startYear != null) {
     url += `&start_year=${encodeURIComponent(filters.startYear)}`;
@@ -26,7 +27,8 @@ async function getBarData(filters = {}) {
 async function getStackedAreaData(filters = {}) {
   let url = BASE_URL + '/data?graph=stackedarea';
   if (filters.community) {
-    url += `&community=${encodeURIComponent(filters.community)}`;
+    const commVal = Array.isArray(filters.community) ? filters.community.join(',') : filters.community;
+    url += `&community=${encodeURIComponent(commVal)}`;
   }
   try {
     const response = await fetch(url);

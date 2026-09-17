@@ -58,13 +58,18 @@
         }
       });
     }
-    // Compute data-driven domain
-    const values = Array.from(crimeByCommunity.values());
-    const minVal = values.length ? d3.min(values) : 0;
-    const maxVal = values.length ? d3.max(values) : 1;
+
+    // Compute data-driven domain across ALL Chicago communities
+    const allCounts = topo.features.map(f => {
+      const name = (f && f.properties && f.properties.community) ? String(f.properties.community).toUpperCase() : '';
+      return crimeByCommunity.get(name) || 0;
+    });
+    const maxVal = d3.max(allCounts) || 0;
+    const minVal = d3.min(allCounts) || 0;
+
     // Sequential color scale (OrRd)
     const colorScale = d3.scaleSequential()
-      .domain([minVal, Math.max(minVal + 1, maxVal)])
+      .domain([0, Math.max(1, maxVal)])
       .interpolator(d3.interpolateOrRd);
 
     let mapAreas;
@@ -103,17 +108,26 @@
       if (!currentSelectedDistricts || currentSelectedDistricts.size === 0) {
         mapAreas
           .interrupt()
-          .style("opacity", 0.8)
-          .style("stroke", "#fff")
-          .style("stroke-width", "0.5px");
+          .style("opacity", 0.88)
+          .style("stroke", function(areaD) {
+            const name = (areaD && areaD.properties && areaD.properties.community) ? String(areaD.properties.community).toUpperCase() : '';
+            const c = crimeByCommunity.get(name) || 0;
+            return (maxVal === 1 && c > 0) ? '#9a3412' : (c > 0 ? '#fff' : '#cbd5e1');
+          })
+          .style("stroke-width", function(areaD) {
+            const name = (areaD && areaD.properties && areaD.properties.community) ? String(areaD.properties.community).toUpperCase() : '';
+            const c = crimeByCommunity.get(name) || 0;
+            return (maxVal === 1 && c > 0) ? '1.5px' : '0.5px';
+          });
       } else {
         mapAreas.each(function(areaD) {
           const name = (areaD && areaD.properties && areaD.properties.community) ? String(areaD.properties.community).toUpperCase() : '';
           const isSelected = currentSelectedDistricts.has(name);
+          const c = crimeByCommunity.get(name) || 0;
           d3.select(this)
             .interrupt()
             .style("opacity", isSelected ? 1 : 0.22)
-            .style("stroke", isSelected ? "#e65100" : "#fff")
+            .style("stroke", isSelected ? "#e65100" : (c > 0 ? '#fff' : '#cbd5e1'))
             .style("stroke-width", isSelected ? "2.5px" : "0.5px");
         });
       }
@@ -148,12 +162,22 @@
         .attr("fill", function(d){
           const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
           const c = crimeByCommunity.get(name) || 0;
-          return colorScale(c) || '#eee';
+          if (c === 0) return '#f1f5f9';
+          if (maxVal === 1) return '#d94801';
+          return colorScale(c) || '#f1f5f9';
         })
-        .style("stroke", "#fff")
-        .style("stroke-width", "0.5px")
+        .style("stroke", function(d) {
+          const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
+          const c = crimeByCommunity.get(name) || 0;
+          return (maxVal === 1 && c > 0) ? '#9a3412' : (c > 0 ? '#ffffff' : '#cbd5e1');
+        })
+        .style("stroke-width", function(d) {
+          const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
+          const c = crimeByCommunity.get(name) || 0;
+          return (maxVal === 1 && c > 0) ? '1.5px' : '0.5px';
+        })
         .attr("class", function(d){ return "Country" } )
-        .style("opacity", .8)
+        .style("opacity", .88)
         .on("mouseover", mouseOver )
         .on("mousemove", mouseMove )
         .on("mouseleave", mouseLeave )
@@ -178,15 +202,12 @@
     // ==========================================
     // MAP COLOR LEGEND (Theory_md sequential encoding)
     // ==========================================
-    const formatTick = d3.format("~s");
-    const midVal = Math.round((minVal + maxVal) / 2);
-
     const legendContainer = d3.select('#map').append('div')
       .attr('class', 'map-legend-container');
 
     legendContainer.append('div')
       .attr('class', 'map-legend-title')
-      .text('Crime Density');
+      .text(maxVal <= 1 ? (maxVal === 1 ? 'Crime Incidents (1 Max)' : 'Crime Density (0 Incidents)') : 'Crime Density');
 
     // Create gradient stops directly matching d3.interpolateOrRd
     const stops = [0, 0.25, 0.5, 0.75, 1.0].map(p => {
@@ -201,9 +222,20 @@
     const ticksDiv = legendContainer.append('div')
       .attr('class', 'map-legend-ticks');
 
-    ticksDiv.append('span').text(formatTick(minVal));
-    ticksDiv.append('span').text(formatTick(midVal));
-    ticksDiv.append('span').text(formatTick(maxVal));
+    if (maxVal === 0) {
+      ticksDiv.append('span').text('0');
+    } else if (maxVal <= 5) {
+      ticksDiv.append('span').text('0');
+      if (maxVal > 1) {
+        ticksDiv.append('span').text(String(Math.round(maxVal / 2)));
+      }
+      ticksDiv.append('span').text(String(maxVal));
+    } else {
+      const formatTick = d => Math.abs(d) >= 1000 ? d3.format("~s")(d) : d3.format("d")(d);
+      ticksDiv.append('span').text(formatTick(minVal));
+      ticksDiv.append('span').text(formatTick(Math.round((minVal + maxVal) / 2)));
+      ticksDiv.append('span').text(formatTick(maxVal));
+    }
   }
 
   let currentStartYear = null;
@@ -250,17 +282,22 @@
     if (!selected || selected.size === 0) {
       areas
         .classed('highlighted-district', false)
-        .style('opacity', 0.8)
-        .style('stroke', '#fff')
+        .style('opacity', 0.88)
+        .style('stroke', function(d) {
+          const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
+          const c = cachedData && Array.isArray(cachedData) ? (cachedData.find(item => String(item.community_area).toUpperCase() === name)?.crime_count || 0) : 0;
+          return c > 0 ? '#ffffff' : '#cbd5e1';
+        })
         .style('stroke-width', '0.5px');
     } else {
       areas.each(function(d) {
         const name = d && d.properties && d.properties.community ? String(d.properties.community).toUpperCase() : '';
         const isSelected = selected.has(name);
+        const c = cachedData && Array.isArray(cachedData) ? (cachedData.find(item => String(item.community_area).toUpperCase() === name)?.crime_count || 0) : 0;
         d3.select(this)
           .classed('highlighted-district', isSelected)
           .style('opacity', isSelected ? 1 : 0.22)
-          .style('stroke', isSelected ? '#e65100' : '#fff')
+          .style('stroke', isSelected ? '#e65100' : (c > 0 ? '#fff' : '#cbd5e1'))
           .style('stroke-width', isSelected ? '2.5px' : '0.5px');
       });
     }

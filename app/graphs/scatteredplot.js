@@ -126,16 +126,21 @@
     const clustersInfo = [];
     const seen = new Set();
     mdsData.forEach(d => {
+      const label = (d.cluster_label === 'Motor Vehicle Theft & General') ? 'General Crimes' : d.cluster_label;
+      d.cluster_label = label;
       if (!seen.has(d.cluster)) {
         seen.add(d.cluster);
-        clustersInfo.push({ id: d.cluster, label: d.cluster_label });
+        clustersInfo.push({ id: d.cluster, label: label });
       }
     });
     clustersInfo.sort((a, b) => a.id - b.id);
 
     const legendG = svg.append("g")
       .attr("class", "mds-legend")
-      .attr("transform", `translate(${margin.left}, 4)`);
+      .attr("transform", `translate(${margin.left}, 4)`)
+      .style("pointer-events", "none")
+      .style("cursor", "default")
+      .style("user-select", "none");
 
     const colWidth = Math.max(170, (width + margin.right) / 2);
     clustersInfo.forEach((cl, idx) => {
@@ -145,13 +150,18 @@
       const yPos = row * 16;
 
       const item = legendG.append("g")
-        .attr("transform", `translate(${xPos}, ${yPos})`);
+        .attr("transform", `translate(${xPos}, ${yPos})`)
+        .style("pointer-events", "none")
+        .style("cursor", "default")
+        .style("user-select", "none");
 
       item.append("circle")
         .attr("r", 5)
         .attr("cx", 6)
         .attr("cy", 0)
-        .attr("fill", clusterColors[cl.id % clusterColors.length]);
+        .attr("fill", clusterColors[cl.id % clusterColors.length])
+        .style("pointer-events", "none")
+        .style("cursor", "default");
 
       item.append("text")
         .attr("x", 16)
@@ -159,11 +169,73 @@
         .style("font-size", "10.5px")
         .style("font-weight", "600")
         .style("fill", "#334155")
-        .text(cl.label);
+        .style("pointer-events", "none")
+        .style("cursor", "default")
+        .style("user-select", "none")
+        .text(cl.label === 'Motor Vehicle Theft & General' ? 'General Crimes' : cl.label);
     });
 
     // ==========================================
-    // DATA POINTS (DOTS) - Hover and Reactive Only
+    // SELECTION: RECTANGULAR BRUSH & DOT CLICK
+    // ==========================================
+    function emitDistrictsSelected() {
+      const districts = Array.from(selectedDistricts);
+      window.dispatchEvent(new CustomEvent('districtsSelected', {
+        detail: { districts, source: 'mds' }
+      }));
+      updateMdsBadge();
+    }
+
+    // Brush group (positioned under dots so dots retain full hover & click precision)
+    const brushG = g.append("g").attr("class", "mds-brush");
+    const brush = d3.brush()
+      .extent([[0, 0], [width, height]])
+      .on("end", function (event) {
+        if (!event.sourceEvent) return; // Programmatic clear
+        const sel = event.selection;
+        if (!sel) {
+          // Click on canvas background without drag: clear selection if any
+          if (event.sourceEvent.type === 'mouseup' || event.sourceEvent.type === 'click' || event.sourceEvent.type === 'pointerup') {
+            if (selectedDistricts.size > 0) {
+              selectedDistricts.clear();
+              updateVisualStates();
+              emitDistrictsSelected();
+            }
+          }
+          return;
+        }
+
+        const [[x0, y0], [x1, y1]] = sel;
+        // Ignore tiny accidental clicks/jitters (< 4px)
+        if (Math.abs(x1 - x0) < 4 && Math.abs(y1 - y0) < 4) {
+          d3.select(this).call(brush.move, null);
+          return;
+        }
+
+        const isShift = event.sourceEvent.shiftKey || event.sourceEvent.ctrlKey || event.sourceEvent.metaKey;
+        if (!isShift) {
+          selectedDistricts.clear();
+        }
+
+        mdsData.forEach(d => {
+          const px = x(d.x);
+          const py = y(d.y);
+          if (px >= x0 && px <= x1 && py >= y0 && py <= y1) {
+            selectedDistricts.add(d.community);
+          }
+        });
+
+        // Clear visual brush box so dots remain clearly visible and interactive
+        d3.select(this).call(brush.move, null);
+
+        updateVisualStates();
+        emitDistrictsSelected();
+      });
+
+    brushG.call(brush);
+
+    // ==========================================
+    // DATA POINTS (DOTS)
     // ==========================================
     const dotsG = g.append("g").attr("class", "dots-group");
 
@@ -173,18 +245,19 @@
       .attr("class", "mds-dot")
       .attr("cx", d => x(d.x))
       .attr("cy", d => y(d.y))
-      .attr("r", 5)
+      .attr("r", d => selectedDistricts.has(d.community) ? 7.5 : 5)
       .attr("fill", d => clusterColors[d.cluster % clusterColors.length])
-      .attr("stroke", "#ffffff")
-      .attr("stroke-width", 1)
-      .attr("opacity", 0.85);
+      .attr("stroke", d => selectedDistricts.has(d.community) ? "#e65100" : "#ffffff")
+      .attr("stroke-width", d => selectedDistricts.has(d.community) ? 2.5 : 1)
+      .attr("opacity", d => selectedDistricts.size === 0 || selectedDistricts.has(d.community) ? 0.85 : 0.22)
+      .style("cursor", "pointer");
 
     dots
       .on("mouseover", function (event, d) {
         d3.select(this)
-          .attr("r", 7)
-          .attr("stroke", "#0f172a")
-          .attr("stroke-width", 2);
+          .attr("r", selectedDistricts.has(d.community) ? 8.5 : 7)
+          .attr("stroke", selectedDistricts.has(d.community) ? "#e65100" : "#0f172a")
+          .attr("stroke-width", 2.5);
 
         // Build top crimes preview
         const topHtml = (d.top_crimes || []).map((c, idx) =>
@@ -209,6 +282,9 @@
             <div style="border-top:1px solid rgba(255,255,255,0.15); padding-top:3px;">
               ${topHtml}
             </div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:4px; font-style:italic;">
+              Click to select | Shift-click / Drag to multi-select
+            </div>
           `);
 
         // Notify map of hover
@@ -222,12 +298,33 @@
       .on("mouseout", function (event, d) {
         const isSelected = selectedDistricts.has(d.community);
         d3.select(this)
-          .attr("r", isSelected ? 7 : 5)
+          .attr("r", isSelected ? 7.5 : 5)
           .attr("stroke", isSelected ? "#e65100" : "#ffffff")
           .attr("stroke-width", isSelected ? 2.5 : 1);
         tooltip.style("visibility", "hidden");
         updateVisualStates();
         window.dispatchEvent(new CustomEvent('districtHovered', { detail: { community: null } }));
+      })
+      .on("click", function (event, d) {
+        event.stopPropagation();
+        const comm = d.community;
+        const isMulti = event.shiftKey || event.ctrlKey || event.metaKey;
+        if (isMulti) {
+          if (selectedDistricts.has(comm)) {
+            selectedDistricts.delete(comm);
+          } else {
+            selectedDistricts.add(comm);
+          }
+        } else {
+          if (selectedDistricts.size === 1 && selectedDistricts.has(comm)) {
+            selectedDistricts.clear();
+          } else {
+            selectedDistricts.clear();
+            selectedDistricts.add(comm);
+          }
+        }
+        updateVisualStates();
+        emitDistrictsSelected();
       });
 
     function updateVisualStates() {
@@ -243,12 +340,13 @@
           const isSelected = selectedDistricts.has(d.community);
           d3.select(this)
             .attr("opacity", isSelected ? 1 : 0.22)
-            .attr("r", isSelected ? 7 : 4)
+            .attr("r", isSelected ? 7.5 : 4)
             .attr("stroke", isSelected ? "#e65100" : "#ffffff")
             .attr("stroke-width", isSelected ? 2.5 : 0.5)
             .classed("selected", isSelected);
         });
       }
+      updateMdsBadge();
     }
 
     window._updateVisualStates = updateVisualStates;
@@ -299,6 +397,18 @@
         }
       });
     }
+
+    const distBadge = document.getElementById('mds-districts-badge');
+    if (distBadge) {
+      distBadge.addEventListener('click', () => {
+        selectedDistricts.clear();
+        if (window._updateVisualStates) window._updateVisualStates();
+        window.dispatchEvent(new CustomEvent('districtsSelected', {
+          detail: { districts: [], source: 'mds' }
+        }));
+        updateMdsBadge();
+      });
+    }
   }
 
   let currentStartYear = null;
@@ -312,7 +422,10 @@
         endYear: currentEndYear
       });
       if (Array.isArray(data) && data.length) {
-        mdsData = data;
+        mdsData = data.map(d => ({
+          ...d,
+          cluster_label: (d.cluster_label === 'Motor Vehicle Theft & General') ? 'General Crimes' : d.cluster_label
+        }));
         draw();
       }
     } catch (err) {
@@ -322,12 +435,24 @@
 
   function updateMdsBadge() {
     const badge = document.getElementById('mds-time-badge');
-    if (!badge) return;
-    if (currentStartYear != null && currentEndYear != null) {
-      badge.textContent = `${currentStartYear}–${currentEndYear}`;
-      badge.classList.remove('d-none');
-    } else {
-      badge.classList.add('d-none');
+    if (badge) {
+      if (currentStartYear != null && currentEndYear != null) {
+        badge.textContent = `${currentStartYear}–${currentEndYear}`;
+        badge.classList.remove('d-none');
+      } else {
+        badge.classList.add('d-none');
+      }
+    }
+
+    const distBadge = document.getElementById('mds-districts-badge');
+    if (distBadge) {
+      if (selectedDistricts && selectedDistricts.size > 0) {
+        const count = selectedDistricts.size;
+        distBadge.textContent = count === 1 ? `${Array.from(selectedDistricts)[0]} ✕` : `${count} Areas ✕`;
+        distBadge.classList.remove('d-none');
+      } else {
+        distBadge.classList.add('d-none');
+      }
     }
   }
 
@@ -370,6 +495,7 @@
   });
 
   window.addEventListener('districtsSelected', (e) => {
+    if (e.detail && e.detail.source === 'mds') return;
     const districts = e.detail && e.detail.districts ? e.detail.districts : [];
     selectedDistricts = new Set(districts);
     if (window._updateVisualStates) {
@@ -377,6 +503,7 @@
     } else {
       draw();
     }
+    updateMdsBadge();
   });
 
   // Global Dashboard Reset Listener

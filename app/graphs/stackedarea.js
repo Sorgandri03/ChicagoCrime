@@ -10,7 +10,7 @@
   let focusedCrime = null;    // null or string
   let brushedYears = null;    // null or [startYear, endYear]
   let hoveredCrime = null;
-  let selectedCommunity = null;
+  let selectedCommunities = null;
 
   // Cache DOM control references
   const btnModeCounts = document.getElementById('btn-mode-counts');
@@ -241,12 +241,16 @@
 
     // Y Scale
     let yScale;
+    const maxStackedVal = d3.max(stackedSeries, layer => d3.max(layer, d => d[1])) || 1;
     if (currentMode === 'percent') {
       yScale = d3.scaleLinear()
         .domain([0, 1])
         .range([height, 0]);
+    } else if (maxStackedVal <= 5) {
+      yScale = d3.scaleLinear()
+        .domain([0, Math.max(1, Math.ceil(maxStackedVal))])
+        .range([height, 0]);
     } else {
-      const maxStackedVal = d3.max(stackedSeries, layer => d3.max(layer, d => d[1])) || 1;
       yScale = d3.scaleLinear()
         .domain([0, maxStackedVal * 1.05])
         .range([height, 0])
@@ -254,8 +258,9 @@
     }
 
     // Gridlines behind chart
+    const tickCount = (currentMode === 'percent') ? 6 : (maxStackedVal <= 5 ? Math.max(1, Math.ceil(maxStackedVal)) : 6);
     const yGrid = d3.axisLeft(yScale)
-      .ticks(6)
+      .ticks(tickCount)
       .tickSize(-width)
       .tickFormat("");
     g.append("g")
@@ -289,9 +294,18 @@
       .tickValues(years)
       .tickFormat(d3.format("d"));
 
+    let yAxisFormat;
+    if (currentMode === 'percent') {
+      yAxisFormat = d3.format(".0%");
+    } else if (maxStackedVal <= 5) {
+      yAxisFormat = d3.format("d");
+    } else {
+      yAxisFormat = d => Number.isInteger(d) ? (Math.abs(d) >= 1000 ? d3.format("~s")(d) : d3.format("d")(d)) : "";
+    }
+
     const yAxis = d3.axisLeft(yScale)
-      .ticks(6)
-      .tickFormat(currentMode === 'percent' ? d3.format(".0%") : d3.format("~s"));
+      .ticks(tickCount)
+      .tickFormat(yAxisFormat);
 
     // Render X Axis
     g.append("g")
@@ -691,9 +705,9 @@
     updateStatusBadge();
     draw();
 
-    // Emit event for coordinated views
-    window.dispatchEvent(new CustomEvent('crimeCategorySelected', {
-      detail: { crime: focusedCrime }
+    // Emit event for coordinated views (both bar graph and map listen to 'crimeSelected')
+    window.dispatchEvent(new CustomEvent('crimeSelected', {
+      detail: { crime: focusedCrime, source: 'stackedarea' }
     }));
   }
 
@@ -704,8 +718,12 @@
     if (!statusBadge) return;
 
     const parts = [];
-    if (selectedCommunity) {
-      parts.push(`Area: ${selectedCommunity}`);
+    if (selectedCommunities && selectedCommunities.length > 0) {
+      if (selectedCommunities.length === 1) {
+        parts.push(`Area: ${selectedCommunities[0]}`);
+      } else {
+        parts.push(`Areas (${selectedCommunities.length}): ${selectedCommunities.slice(0, 2).join(', ')}${selectedCommunities.length > 2 ? '…' : ''}`);
+      }
     }
     if (focusedCrime) {
       parts.push(`Focus: ${focusedCrime}`);
@@ -730,7 +748,7 @@
   function resetAll() {
     focusedCrime = null;
     brushedYears = null;
-    selectedCommunity = null;
+    selectedCommunities = null;
     updateStatusBadge();
     reloadStackedData();
 
@@ -740,8 +758,8 @@
     window.dispatchEvent(new CustomEvent('crimeTimeRangeSelected', {
       detail: { isReset: true }
     }));
-    window.dispatchEvent(new CustomEvent('crimeCategorySelected', {
-      detail: { crime: null, isReset: true }
+    window.dispatchEvent(new CustomEvent('crimeSelected', {
+      detail: { crime: null, isReset: true, source: 'stackedarea' }
     }));
     window.dispatchEvent(new CustomEvent('districtsSelected', {
       detail: { districts: [] }
@@ -868,15 +886,16 @@
       ro.observe(rootContainer);
     }
 
-    // Community filter listener from map
+    // Community filter listener from map or MDS
     window.addEventListener('districtsSelected', async (e) => {
       const districts = e.detail && e.detail.districts ? e.detail.districts : [];
-      selectedCommunity = districts.length > 0 ? districts[0] : null;
+      selectedCommunities = districts.length > 0 ? districts : null;
       await reloadStackedData();
     });
 
-    // Crime filter listener from bar chart
+    // Crime filter listener from bar chart or other views
     window.addEventListener('crimeSelected', (e) => {
+      if (e.detail && e.detail.source === 'stackedarea') return;
       const crime = e.detail && e.detail.crime ? e.detail.crime : null;
       focusedCrime = crime;
       updateStatusBadge();
@@ -899,7 +918,7 @@
 
   async function reloadStackedData() {
     try {
-      const apiData = await getStackedAreaData({ community: selectedCommunity });
+      const apiData = await getStackedAreaData({ community: selectedCommunities });
       if (apiData && Array.isArray(apiData)) {
         rawData = apiData.map(d => ({
           year: +d.year,

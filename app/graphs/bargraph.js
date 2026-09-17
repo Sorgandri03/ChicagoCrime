@@ -15,7 +15,7 @@
     selectedCrime: null
   };
 
-  let selectedCommunity = null;
+  let selectedCommunities = null;
   let currentStartYear = null;
   let currentEndYear = null;
 
@@ -102,7 +102,7 @@
         if (state.selectedCrime !== null) {
           state.selectedCrime = null;
           updateSelectionHighlight();
-          window.dispatchEvent(new CustomEvent('crimeSelected', { detail: { crime: null } }));
+          window.dispatchEvent(new CustomEvent('crimeSelected', { detail: { crime: null, source: 'bargraph' } }));
         }
       }
     });
@@ -198,10 +198,10 @@
           .nice();
       }
 
-      // X Axis (Bottom)
+      const axisFormatter = d => Number.isInteger(d) ? (Math.abs(d) >= 1000 ? d3.format("~s")(d) : d3.format("d")(d)) : "";
       const xAxis = d3.axisBottom(x)
         .ticks(Math.max(4, Math.round(width / 90)))
-        .tickFormat(isLog ? d3.format("~s") : d3.format("~s"));
+        .tickFormat(axisFormatter);
 
       g.append("g")
         .attr("class", "axis axis-x")
@@ -349,9 +349,10 @@
         .text(d => d);
 
       // Y Axis (Left)
+      const vertAxisFormatter = d => Number.isInteger(d) ? (Math.abs(d) >= 1000 ? d3.format("~s")(d) : d3.format("d")(d)) : "";
       const yAxis = d3.axisLeft(y)
         .ticks(Math.max(4, Math.round(height / 50)))
-        .tickFormat(isLog ? d3.format("~s") : d3.format("~s"));
+        .tickFormat(vertAxisFormatter);
 
       g.append("g")
         .attr("class", "axis axis-y")
@@ -552,7 +553,8 @@
         window.dispatchEvent(new CustomEvent('crimeSelected', {
           detail: {
             crime: state.selectedCrime,
-            count: d.count
+            count: d.count,
+            source: 'bargraph'
           }
         }));
       });
@@ -688,8 +690,25 @@
     // Coordinated View Listeners
     window.addEventListener('districtsSelected', async (e) => {
       const districts = e.detail && e.detail.districts ? e.detail.districts : [];
-      selectedCommunity = districts.length > 0 ? districts[0] : null;
+      selectedCommunities = districts.length > 0 ? districts : null;
       await reloadBarData();
+    });
+
+    // Crime selection listener from Stacked Area or other views
+    window.addEventListener('crimeSelected', (e) => {
+      if (e.detail && e.detail.source === 'bargraph') return;
+      const crime = e.detail && e.detail.crime ? e.detail.crime : null;
+      state.selectedCrime = crime;
+      if (state.selectedCrime && state.filter !== 'all') {
+        const inCurrent = getDisplayData().some(d => d.crime === state.selectedCrime);
+        if (!inCurrent) {
+          state.filter = 'all';
+          const filterSel = document.getElementById('bar-filter-select');
+          if (filterSel) filterSel.value = 'all';
+          draw();
+        }
+      }
+      updateSelectionHighlight();
     });
 
     window.addEventListener('timespanSelected', async (e) => {
@@ -709,7 +728,7 @@
     // Global Dashboard Reset Listener
     window.addEventListener('globalDashboardReset', async () => {
       state.selectedCrime = null;
-      selectedCommunity = null;
+      selectedCommunities = null;
       currentStartYear = null;
       currentEndYear = null;
       await reloadBarData();
@@ -722,7 +741,7 @@
   async function reloadBarData() {
     try {
       const apiData = await getBarData({
-        community: selectedCommunity,
+        community: selectedCommunities,
         startYear: currentStartYear,
         endYear: currentEndYear
       });
@@ -734,6 +753,7 @@
 
       updateBarHeaderBadges();
       draw();
+      updateSelectionHighlight();
     } catch (err) {
       console.error('Error reloading bar data:', err);
     }
@@ -743,7 +763,13 @@
     const totalBadge = document.getElementById('bar-total-badge');
     if (totalBadge) {
       let label = `${formatComma(totalCrimes)} Crimes`;
-      if (selectedCommunity) label += ` | Area: ${selectedCommunity}`;
+      if (selectedCommunities && selectedCommunities.length > 0) {
+        if (selectedCommunities.length === 1) {
+          label += ` | Area: ${selectedCommunities[0]}`;
+        } else {
+          label += ` | Areas (${selectedCommunities.length}): ${selectedCommunities.slice(0, 2).join(', ')}${selectedCommunities.length > 2 ? '…' : ''}`;
+        }
+      }
       if (currentStartYear != null && currentEndYear != null) label += ` | ${currentStartYear}–${currentEndYear}`;
       totalBadge.textContent = label;
     }

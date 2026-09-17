@@ -71,8 +71,10 @@ def calculate_mds(metric='profile', start_year=None, end_year=None):
             name = 'Violent & Weapons Focus'
         elif top_distinctive == 'DECEPTIVE PRACTICE':
             name = 'Fraud & Deceptive Practice'
+        elif top_distinctive == 'MOTOR VEHICLE THEFT':
+            name = 'General Crimes'
         else:
-            name = f'{top_distinctive.title()} & General'
+            name = 'General Crimes'
         cluster_names[k] = name
 
     results = []
@@ -127,8 +129,11 @@ def get_data():
 
         case 'bargraph':
             sub = agg_data
-            if community:
-                sub = sub[sub['community_name'].str.upper() == community.upper()]
+            communities = request.args.get('community') or request.args.get('communities')
+            if communities:
+                comm_list = [c.strip().upper() for c in communities.split(',') if c.strip()]
+                if comm_list:
+                    sub = sub[sub['community_name'].str.upper().isin(comm_list)]
             if start_year is not None:
                 sub = sub[sub['year'] >= start_year]
             if end_year is not None:
@@ -156,8 +161,11 @@ def get_data():
 
         case 'stackedarea':
             sub = agg_data
-            if community:
-                sub = sub[sub['community_name'].str.upper() == community.upper()]
+            communities = request.args.get('community') or request.args.get('communities')
+            if communities:
+                comm_list = [c.strip().upper() for c in communities.split(',') if c.strip()]
+                if comm_list:
+                    sub = sub[sub['community_name'].str.upper().isin(comm_list)]
 
             counts = sub.groupby(['year', 'primary_type'])['count'].sum().reset_index()
             counts = counts.sort_values(['year', 'count']).reset_index(drop=True)

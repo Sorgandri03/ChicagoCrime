@@ -391,10 +391,23 @@ footer {
     stroke-dasharray: 4, 3;
 }
 
+.mds-legend {
+    pointer-events: none;
+    user-select: none;
+    cursor: default;
+}
+
 .mds-legend text {
     font-family: 'Segoe UI', system-ui, sans-serif;
     font-size: 8.5px;
-    cursor: pointer;
+    cursor: default;
+    pointer-events: none;
+    user-select: none;
+}
+
+.mds-legend circle {
+    cursor: default;
+    pointer-events: none;
 }
 
 /* Map Highlight on District Selection */
@@ -722,4 +735,16 @@ path.highlighted-district {
     .stackedarea-legend-item {
         flex: 0 0 auto;
     }
+}
+
+/* MDS Brush Styling */
+.mds-brush .selection {
+    fill: rgba(37, 99, 235, 0.16);
+    stroke: #2563eb;
+    stroke-width: 1.5px;
+    stroke-dasharray: 4, 3;
+}
+
+.mds-brush .overlay {
+    cursor: crosshair;
 }
