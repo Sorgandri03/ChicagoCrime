@@ -107,7 +107,7 @@
       .style("font-size", "10px")
       .style("font-weight", "500")
       .style("fill", "#64748b")
-      .text("MDS Dimension 1 (Crime Space)");
+      .text("MDS Dimension 1");
 
     svg.append("text")
       .attr("transform", "rotate(-90)")
